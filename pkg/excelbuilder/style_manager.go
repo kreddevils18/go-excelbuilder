@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+
+	"github.com/xuri/excelize/v2"
 )
 
 // StyleManager manages style flyweights using the Flyweight pattern
@@ -47,19 +49,19 @@ func NewStyleManager() *StyleManager {
 
 // GetStyle returns a StyleFlyweight for the given configuration
 // Uses caching to ensure memory efficiency and performance
-func (sm *StyleManager) GetStyle(config StyleConfig) *StyleFlyweight {
+func (sm *StyleManager) GetStyle(config StyleConfig, file *excelize.File) *StyleFlyweight {
 	cacheKey := sm.GenerateCacheKey(config)
 
 	// Try to get from cache with read lock
 	sm.mutex.RLock()
 	if flyweight, exists := sm.cache[cacheKey]; exists {
 		sm.mutex.RUnlock()
-		
+
 		// Update stats with write lock
 		sm.mutex.Lock()
 		sm.stats.CacheHits++
 		sm.mutex.Unlock()
-		
+
 		return flyweight
 	}
 	sm.mutex.RUnlock()
@@ -75,7 +77,14 @@ func (sm *StyleManager) GetStyle(config StyleConfig) *StyleFlyweight {
 	}
 
 	// Create new flyweight
-	flyweight := NewStyleFlyweight(config)
+	style := convertToExcelizeStyle(config)
+	styleID, err := file.NewStyle(&style)
+	if err != nil {
+		// Handle error, maybe return a default style or an error
+		return nil
+	}
+
+	flyweight := NewStyleFlyweight(config, styleID)
 	sm.cache[cacheKey] = flyweight
 	sm.stats.CacheMisses++
 	sm.stats.TotalStyles++
@@ -122,6 +131,123 @@ func (sm *StyleManager) GetCacheSize() int {
 }
 
 // GetStyleFlyweight is an alias for GetStyle for backward compatibility
-func (sm *StyleManager) GetStyleFlyweight(config StyleConfig) *StyleFlyweight {
-	return sm.GetStyle(config)
+func (sm *StyleManager) GetStyleFlyweight(config StyleConfig, file *excelize.File) *StyleFlyweight {
+	return sm.GetStyle(config, file)
+}
+
+func convertToExcelizeStyle(config StyleConfig) excelize.Style {
+	style := excelize.Style{}
+
+	// Font configuration
+	if config.Font.Size > 0 || config.Font.Bold || config.Font.Italic ||
+		config.Font.Underline || config.Font.Color != "" || config.Font.Family != "" {
+		font := &excelize.Font{}
+
+		if config.Font.Size > 0 {
+			font.Size = float64(config.Font.Size)
+		}
+		if config.Font.Bold {
+			font.Bold = true
+		}
+		if config.Font.Italic {
+			font.Italic = true
+		}
+		if config.Font.Underline {
+			font.Underline = "single"
+		}
+		if config.Font.Color != "" {
+			font.Color = config.Font.Color
+		}
+		if config.Font.Family != "" {
+			font.Family = config.Font.Family
+		}
+
+		style.Font = font
+	}
+
+	// Fill configuration
+	if config.Fill.Type != "" || config.Fill.Color != "" {
+		fill := &excelize.Fill{}
+
+		if config.Fill.Type == "pattern" && config.Fill.Color != "" {
+			fill.Type = "pattern"
+			fill.Pattern = 1 // Solid fill
+			fill.Color = []string{config.Fill.Color}
+		}
+
+		style.Fill = *fill
+	}
+
+	// Border configuration
+	if config.Border.Top.Style != "" || config.Border.Bottom.Style != "" ||
+		config.Border.Left.Style != "" || config.Border.Right.Style != "" {
+		border := []excelize.Border{}
+
+		if config.Border.Top.Style != "" {
+			border = append(border, excelize.Border{
+				Type:  "top",
+				Style: getBorderStyle(config.Border.Top.Style),
+				Color: getColorOrDefault(config.Border.Top.Color, config.Border.Color),
+			})
+		}
+		if config.Border.Bottom.Style != "" {
+			border = append(border, excelize.Border{
+				Type:  "bottom",
+				Style: getBorderStyle(config.Border.Bottom.Style),
+				Color: getColorOrDefault(config.Border.Bottom.Color, config.Border.Color),
+			})
+		}
+		if config.Border.Left.Style != "" {
+			border = append(border, excelize.Border{
+				Type:  "left",
+				Style: getBorderStyle(config.Border.Left.Style),
+				Color: getColorOrDefault(config.Border.Left.Color, config.Border.Color),
+			})
+		}
+		if config.Border.Right.Style != "" {
+			border = append(border, excelize.Border{
+				Type:  "right",
+				Style: getBorderStyle(config.Border.Right.Style),
+				Color: getColorOrDefault(config.Border.Right.Color, config.Border.Color),
+			})
+		}
+
+		style.Border = border
+	}
+
+	// Alignment configuration
+	if config.Alignment.Horizontal != "" || config.Alignment.Vertical != "" {
+		alignment := &excelize.Alignment{}
+
+		if config.Alignment.Horizontal != "" {
+			alignment.Horizontal = config.Alignment.Horizontal
+		}
+		if config.Alignment.Vertical != "" {
+			alignment.Vertical = config.Alignment.Vertical
+		}
+
+		style.Alignment = alignment
+	}
+
+	return style
+}
+
+func getBorderStyle(style string) int {
+	switch style {
+	case "thin":
+		return 1
+	case "medium":
+		return 2
+	case "thick":
+		return 3
+	default:
+		return 0
+	}
+}
+
+func getColorOrDefault(color, defaultColor string) string {
+	if color != "" {
+		return color
+	}
+	return defaultColor
 }

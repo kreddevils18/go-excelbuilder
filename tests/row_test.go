@@ -202,8 +202,8 @@ func TestRowBuilder_Done(t *testing.T) {
 	}
 }
 
-// Test Case 4.7: SetRowHeight Method
-func TestRowBuilder_SetRowHeight(t *testing.T) {
+// Test Case 4.7: SetHeight Method
+func TestRowBuilder_SetHeight(t *testing.T) {
 	// Test: Check setting row height
 	// Input: height 25.5
 	// Expected:
@@ -219,14 +219,14 @@ func TestRowBuilder_SetRowHeight(t *testing.T) {
 		t.Fatal("Failed to create row")
 	}
 
-	result := row.SetRowHeight(25.5)
+	result := row.SetHeight(25.5)
 	if result == nil {
-		t.Fatal("Expected SetRowHeight to return RowBuilder for fluent interface")
+		t.Fatal("Expected SetHeight to return RowBuilder for fluent interface")
 	}
 
 	// Test chaining
 	cell := result.AddCell("Test")
 	if cell == nil {
-		t.Fatal("Expected to chain AddCell after SetRowHeight")
+		t.Fatal("Expected to chain AddCell after SetHeight")
 	}
 }

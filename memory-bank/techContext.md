@@ -37,8 +37,6 @@ github.com/stretchr/testify v1.8.4
 ├── require   // Required assertions
 ├── mock      // Mocking framework
 └── suite     // Test suites
-```
-
 #### Benchmarking Tools
 ```go
 // Built-in benchmarking
@@ -48,9 +46,43 @@ import "testing"
 import _ "net/http/pprof"
 
 // Custom benchmark utilities
-// - Memory usage tracking
-// - Performance regression detection
-// - Comparative benchmarks
+```
+
+#### Data Processing Libraries
+```go
+// JSON processing
+import "encoding/json"
+
+// CSV processing
+import "encoding/csv"
+
+// String manipulation
+import "strings"
+import "sort"
+
+// Reflection for dynamic data handling
+import "reflect"
+```
+
+### Import/Export System
+
+#### Core Components
+- **ImportHelper**: Handles data import from CSV and JSON formats
+- **ExportHelper**: Manages data export to CSV and JSON formats
+- **Data Processing**: Nested object flattening and column ordering
+- **Error Handling**: Comprehensive validation and error reporting
+
+#### Key Features
+- CSV import/export with configurable delimiters and headers
+- JSON import/export with automatic nested object flattening
+- Alphabetical column ordering for consistent output
+- Sheet naming consistency across operations
+- Round-trip data integrity validation
+
+#### Performance Considerations
+- Memory-efficient streaming for large datasets
+- Optimized reflection usage for dynamic data handling
+- Proper resource cleanup and error handling
 ```
 
 #### Code Quality Tools

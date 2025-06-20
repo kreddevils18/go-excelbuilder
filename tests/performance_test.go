@@ -97,6 +97,7 @@ func TestPerformance_StyleCaching(t *testing.T) {
 	// - Cache hit rate is high
 
 	styleManager := excelbuilder.NewStyleManager()
+	file := excelize.NewFile()
 
 	// Define common styles
 	headerStyle := excelbuilder.StyleConfig{
@@ -120,8 +121,8 @@ func TestPerformance_StyleCaching(t *testing.T) {
 
 	// Create many flyweights with same styles (should hit cache)
 	for i := 0; i < 1000; i++ {
-		headerFlyweight := styleManager.GetStyleFlyweight(headerStyle)
-		dataFlyweight := styleManager.GetStyleFlyweight(dataStyle)
+		headerFlyweight := styleManager.GetStyleFlyweight(headerStyle, file)
+		dataFlyweight := styleManager.GetStyleFlyweight(dataStyle, file)
 
 		assert.NotNil(t, headerFlyweight, "Expected header flyweight")
 		assert.NotNil(t, dataFlyweight, "Expected data flyweight")
@@ -148,6 +149,7 @@ func TestPerformance_ConcurrentAccess(t *testing.T) {
 	// - Performance scales reasonably
 
 	styleManager := excelbuilder.NewStyleManager()
+	file := excelize.NewFile()
 	var wg sync.WaitGroup
 	workerCount := 10
 	operationsPerWorker := 100
@@ -167,7 +169,7 @@ func TestPerformance_ConcurrentAccess(t *testing.T) {
 		go func(workerID int) {
 			defer wg.Done()
 			for op := 0; op < operationsPerWorker; op++ {
-				flyweight := styleManager.GetStyleFlyweight(style)
+				flyweight := styleManager.GetStyleFlyweight(style, file)
 				assert.NotNil(t, flyweight, "Expected flyweight from worker %d, operation %d", workerID, op)
 			}
 		}(worker)
@@ -205,9 +207,10 @@ func TestMemory_StyleFlyweightSharing(t *testing.T) {
 	}
 
 	// Get multiple flyweights for same style
+	file := excelize.NewFile()
 	flyweights := make([]*excelbuilder.StyleFlyweight, 1000)
 	for i := 0; i < 1000; i++ {
-		flyweights[i] = styleManager.GetStyleFlyweight(style)
+		flyweights[i] = styleManager.GetStyleFlyweight(style, file)
 	}
 
 	// All flyweights should be the same instance (memory sharing)
@@ -286,6 +289,7 @@ func TestMemory_ResourceCleanup(t *testing.T) {
 	// Create and use resources
 	func() {
 		styleManager := excelbuilder.NewStyleManager()
+		file := excelize.NewFile()
 		builder := excelbuilder.New()
 
 		// Create multiple workbooks with styles
@@ -296,12 +300,12 @@ func TestMemory_ResourceCleanup(t *testing.T) {
 					Size: 10 + i,
 				},
 			}
-			flyweight := styleManager.GetStyleFlyweight(style)
+			flyweight := styleManager.GetStyleFlyweight(style, file)
 			assert.NotNil(t, flyweight, "Expected flyweight")
 
 			workbook.AddRow().AddCell("test").SetStyle(style).Done().Done()
-			file := workbook.Build()
-			assert.NotNil(t, file, "Expected file")
+			builtFile := workbook.Build()
+			assert.NotNil(t, builtFile, "Expected file")
 		}
 		// All resources should be cleaned up when function exits
 	}()

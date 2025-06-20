@@ -49,6 +49,48 @@ Director (ExcelBuilder)
 
 **RowBuilder (ConcreteBuilder)**
 - Builds row-level configurations
+- Manages cell creation and positioning
+- Handles row-specific operations (height setting)
+- Input validation for Excel constraints
+
+**CellBuilder (ConcreteBuilder)**
+- Builds individual cell configurations
+- Manages cell content and formatting
+- Integrates with StyleFlyweight system
+- Supports formulas, values, and hyperlinks
+
+#### Recent Pattern Enhancements
+
+**Lazy Style Creation Pattern**:
+```go
+// StyleFlyweight can be created with ID 0 (uninitialized)
+sf := NewStyleFlyweight(config, 0)
+
+// Apply method handles lazy creation
+func (sf *StyleFlyweight) Apply(f *excelize.File, cellRef string) error {
+    if sf.id == 0 {
+        // Create style on-demand
+        styleID, err := f.NewStyle(convertToExcelizeStyle(sf.config))
+        if err != nil {
+            return err
+        }
+        sf.id = styleID
+    }
+    return f.SetCellStyle(sheetName, cellRef, cellRef, sf.id)
+}
+```
+
+**Input Validation Pattern**:
+```go
+// Comprehensive validation before excelize calls
+func (rb *RowBuilder) SetHeight(height float64) *RowBuilder {
+    if height <= 0 || height > 409.5 {
+        return nil // Invalid input
+    }
+    // Proceed with excelize operation
+}
+```
+- Builds row-level configurations
 - Manages cells within row
 - Handles row-specific styling
 - Tracks column position
@@ -106,26 +148,147 @@ Context (CellBuilder)
 - JSON-compatible for future persistence
 
 #### Benefits
-- **Memory Efficiency**: Shared style instances
-- **Performance**: Reduced object creation overhead
+- **Memory Efficiency**: Shared style objects
+- **Performance**: Reduced object creation
 - **Consistency**: Centralized style management
 - **Scalability**: Handles large numbers of styled cells
 
+### 3. Helper Pattern (Import/Export)
+
+#### Pattern Structure
+```
+ImportHelper
+├── FromCSV(reader, options) -> ExcelBuilder
+├── FromJSON(data, options) -> ExcelBuilder
+├── processData(data) -> [][]interface{}
+└── flattenObject(obj, prefix) -> map[string]interface{}
+
+ExportHelper
+├── ToCSV(builder, options) -> [][]string
+├── ToJSON(builder, options) -> []byte
+├── extractData(sheet) -> [][]interface{}
+└── buildHeaders(data) -> []string
+
+Options
+├── Delimiter: string
+├── HasHeaders: bool
+├── SheetName: string
+└── SkipEmptyRows: bool
+```
+
+#### Key Components
+
+**ImportHelper (Data Processor)**
+- Handles CSV and JSON data import
+- Flattens nested JSON objects (e.g., address.street)
+- Configurable import options
+- Robust error handling for malformed data
+
+**ExportHelper (Data Extractor)**
+- Extracts data from Excel builders
+- Converts to CSV and JSON formats
+- Maintains column ordering consistency
+- Handles data type conversion
+
+**Data Processing Pipeline**
+- Nested object flattening with dot notation
+- Alphabetical column ordering for consistency
+- Type-safe data conversion
+- Memory-efficient streaming for large datasets
+
+#### Benefits
+- **Separation of Concerns**: Import/export logic isolated
+- **Flexibility**: Multiple format support
+- **Consistency**: Standardized data processing
+- **Robustness**: Comprehensive error handling
+- **Performance**: Optimized for large datasets
+
 ## Component Relationships
 
-### Data Flow
+### Builder Pattern Integration
 ```
-User API Call
+ExcelBuilder (Director)
+├── Creates WorkbookBuilder
+├── Coordinates overall construction
+├── Integrates with ImportHelper
+└── Returns final Excel file
+
+WorkbookBuilder (ConcreteBuilder)
+├── Creates SheetBuilder instances
+├── Manages workbook-level settings
+├── Supports ExportHelper extraction
+└── Integrates with ExcelBuilder
+
+SheetBuilder (ConcreteBuilder)
+├── Creates RowBuilder instances
+├── Manages sheet-level operations
+├── Provides data for export operations
+└── Integrates with WorkbookBuilder
+
+RowBuilder (ConcreteBuilder)
+├── Creates CellBuilder instances
+├── Manages row-level operations
+├── Handles imported data rows
+└── Integrates with SheetBuilder
+
+CellBuilder (ConcreteBuilder)
+├── Integrates with StyleManager
+├── Applies styles via StyleFlyweight
+├── Processes imported cell values
+└── Builds final cell configuration
+```
+
+### Data Flow
+
+#### Standard Builder Flow
+```
+User Request
     ↓
-ExcelBuilder (validates, coordinates)
+ExcelBuilder (validates and coordinates)
     ↓
-ConcreteBuilder (builds specific component)
+WorkbookBuilder (creates workbook structure)
     ↓
-StyleManager (manages styles if needed)
+SheetBuilder (manages sheet operations)
     ↓
-Excelize Operations (actual Excel manipulation)
+RowBuilder (handles row operations)
     ↓
-Result (updated Excel file)
+CellBuilder (applies values and styles)
+    ↓
+StyleManager (manages style flyweights)
+    ↓
+Excelize (performs actual Excel operations)
+    ↓
+Excel File Output
+```
+
+#### Import Data Flow
+```
+External Data (CSV/JSON)
+    ↓
+ImportHelper (processes and validates)
+    ↓
+Data Flattening (nested objects → flat structure)
+    ↓
+Column Ordering (alphabetical sorting)
+    ↓
+ExcelBuilder (receives processed data)
+    ↓
+Standard Builder Flow
+    ↓
+Excel File Output
+```
+
+#### Export Data Flow
+```
+ExcelBuilder (with data)
+    ↓
+ExportHelper (extracts data)
+    ↓
+Data Extraction (sheet → structured data)
+    ↓
+Format Conversion (to CSV/JSON)
+    ↓
+Output Data (CSV/JSON)
 ```
 
 ### Dependency Graph

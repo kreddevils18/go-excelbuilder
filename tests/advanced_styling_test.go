@@ -43,10 +43,10 @@ func TestConditionalFormatting_Rules(t *testing.T) {
 		Range: "A2:A4",
 		Rules: []excelbuilder.ConditionalRule{
 			{
-				Type:      "cellValue",
-				Operator:  "greaterThan",
-				Value:     "90",
-				Format: excelbuilder.StyleConfig{
+				Type:     "cell",
+				Operator: "greaterThan",
+				Value:    "90",
+				Style: excelbuilder.StyleConfig{
 					Fill: excelbuilder.FillConfig{
 						Type:  "pattern",
 						Color: "#90EE90", // Light green
@@ -54,10 +54,10 @@ func TestConditionalFormatting_Rules(t *testing.T) {
 				},
 			},
 			{
-				Type:      "cellValue",
-				Operator:  "lessThan",
-				Value:     "80",
-				Format: excelbuilder.StyleConfig{
+				Type:     "cell",
+				Operator: "lessThan",
+				Value:    "80",
+				Style: excelbuilder.StyleConfig{
 					Fill: excelbuilder.FillConfig{
 						Type:  "pattern",
 						Color: "#FFB6C1", // Light pink
@@ -72,8 +72,8 @@ func TestConditionalFormatting_Rules(t *testing.T) {
 	assert.Len(t, condFormat.Rules, 2, "Expected 2 conditional rules")
 	assert.Equal(t, "greaterThan", condFormat.Rules[0].Operator, "Expected greaterThan operator")
 	assert.Equal(t, "lessThan", condFormat.Rules[1].Operator, "Expected lessThan operator")
-	assert.Equal(t, "#90EE90", condFormat.Rules[0].Format.Fill.Color, "Expected light green color")
-	assert.Equal(t, "#FFB6C1", condFormat.Rules[1].Format.Fill.Color, "Expected light pink color")
+	assert.Equal(t, "#90EE90", condFormat.Rules[0].Style.Fill.Color, "Expected light green color")
+	assert.Equal(t, "#FFB6C1", condFormat.Rules[1].Style.Fill.Color, "Expected light pink color")
 }
 
 // TestConditionalFormatting_DataBars : Test data bars conditional formatting
@@ -88,21 +88,24 @@ func TestConditionalFormatting_DataBars(t *testing.T) {
 		Range: "B2:B10",
 		Rules: []excelbuilder.ConditionalRule{
 			{
-				Type: "dataBar",
-				Format: excelbuilder.StyleConfig{
-					Fill: excelbuilder.FillConfig{
-						Type:  "gradient",
-						Color: "#4472C4",
-					},
+				Type: "data_bar",
+				DataBar: struct {
+					Color       string
+					MinLength   uint8
+					MaxLength   uint8
+					BorderColor string
+					Direction   string
+					BarOnly     bool
+				}{
+					Color: "#4472C4",
 				},
 			},
 		},
 	}
 
 	assert.Equal(t, "B2:B10", dataBarFormat.Range, "Expected range B2:B10")
-	assert.Equal(t, "dataBar", dataBarFormat.Rules[0].Type, "Expected dataBar type")
-	assert.Equal(t, "gradient", dataBarFormat.Rules[0].Format.Fill.Type, "Expected gradient fill")
-	assert.Equal(t, "#4472C4", dataBarFormat.Rules[0].Format.Fill.Color, "Expected blue color")
+	assert.Equal(t, "data_bar", dataBarFormat.Rules[0].Type, "Expected data_bar type")
+	assert.Equal(t, "#4472C4", dataBarFormat.Rules[0].DataBar.Color, "Expected blue color")
 }
 
 // TestConditionalFormatting_ColorScales : Test color scales
@@ -117,8 +120,18 @@ func TestConditionalFormatting_ColorScales(t *testing.T) {
 		Range: "C2:C20",
 		Rules: []excelbuilder.ConditionalRule{
 			{
-				Type: "colorScale",
-				ColorScale: excelbuilder.ColorScale{
+				Type: "2_color_scale",
+				ColorScale: struct {
+					MinType  string
+					MinValue string
+					MinColor string
+					MidType  string
+					MidValue string
+					MidColor string
+					MaxType  string
+					MaxValue string
+					MaxColor string
+				}{
 					MinColor: "#FF0000", // Red
 					MidColor: "#FFFF00", // Yellow
 					MaxColor: "#00FF00", // Green
@@ -128,7 +141,7 @@ func TestConditionalFormatting_ColorScales(t *testing.T) {
 	}
 
 	assert.Equal(t, "C2:C20", colorScaleFormat.Range, "Expected range C2:C20")
-	assert.Equal(t, "colorScale", colorScaleFormat.Rules[0].Type, "Expected colorScale type")
+	assert.Equal(t, "2_color_scale", colorScaleFormat.Rules[0].Type, "Expected 2_color_scale type")
 	assert.Equal(t, "#FF0000", colorScaleFormat.Rules[0].ColorScale.MinColor, "Expected red min color")
 	assert.Equal(t, "#FFFF00", colorScaleFormat.Rules[0].ColorScale.MidColor, "Expected yellow mid color")
 	assert.Equal(t, "#00FF00", colorScaleFormat.Rules[0].ColorScale.MaxColor, "Expected green max color")
@@ -146,22 +159,21 @@ func TestConditionalFormatting_IconSets(t *testing.T) {
 		Range: "D2:D15",
 		Rules: []excelbuilder.ConditionalRule{
 			{
-				Type:    "iconSet",
-				IconSet: "3TrafficLights",
-				Thresholds: []excelbuilder.Threshold{
-					{Value: "33", Type: "percent"},
-					{Value: "67", Type: "percent"},
+				Type: "icon_set",
+				IconSet: struct {
+					Style     string
+					Reverse   bool
+					IconsOnly bool
+				}{
+					Style: "3TrafficLights",
 				},
 			},
 		},
 	}
 
 	assert.Equal(t, "D2:D15", iconSetFormat.Range, "Expected range D2:D15")
-	assert.Equal(t, "iconSet", iconSetFormat.Rules[0].Type, "Expected iconSet type")
-	assert.Equal(t, "3TrafficLights", iconSetFormat.Rules[0].IconSet, "Expected 3TrafficLights icon set")
-	assert.Len(t, iconSetFormat.Rules[0].Thresholds, 2, "Expected 2 thresholds")
-	assert.Equal(t, "33", iconSetFormat.Rules[0].Thresholds[0].Value, "Expected 33% threshold")
-	assert.Equal(t, "67", iconSetFormat.Rules[0].Thresholds[1].Value, "Expected 67% threshold")
+	assert.Equal(t, "icon_set", iconSetFormat.Rules[0].Type, "Expected icon_set type")
+	assert.Equal(t, "3TrafficLights", iconSetFormat.Rules[0].IconSet.Style, "Expected 3TrafficLights icon set")
 }
 
 // Test Case 3.2: Data Validation Tests
@@ -175,21 +187,26 @@ func TestDataValidation_DropdownLists(t *testing.T) {
 	// - Range application works
 
 	dropdownValidation := excelbuilder.DataValidationConfig{
-		Range: "E2:E100",
-		Type:  "list",
-		Formula: "Option1,Option2,Option3,Option4",
-		ShowDropdown: true,
-		ErrorMessage: "Please select a valid option from the dropdown",
-		ErrorTitle:   "Invalid Selection",
-		ShowError:    true,
+		Type:             "list",
+		Formula1:         []string{"Option1", "Option2", "Option3", "Option4"},
+		ShowInputMessage: true,
+		ShowErrorMessage: true,
+		ErrorTitle:       "Invalid Selection",
+		ErrorBody:        "Please select a valid option from the dropdown",
+		ErrorStyle:       "stop",
+		PromptTitle:      "Selection",
+		PromptBody:       "Please select from the list",
 	}
 
-	assert.Equal(t, "E2:E100", dropdownValidation.Range, "Expected range E2:E100")
 	assert.Equal(t, "list", dropdownValidation.Type, "Expected list validation type")
-	assert.Equal(t, "Option1,Option2,Option3,Option4", dropdownValidation.Formula, "Expected dropdown options")
-	assert.True(t, dropdownValidation.ShowDropdown, "Expected dropdown to be shown")
-	assert.True(t, dropdownValidation.ShowError, "Expected error to be shown")
+	assert.Equal(t, []string{"Option1", "Option2", "Option3", "Option4"}, dropdownValidation.Formula1, "Expected dropdown options")
+	assert.True(t, dropdownValidation.ShowInputMessage, "Expected input message to be shown")
+	assert.True(t, dropdownValidation.ShowErrorMessage, "Expected error message to be shown")
 	assert.Equal(t, "Invalid Selection", dropdownValidation.ErrorTitle, "Expected error title")
+	assert.Equal(t, "Please select a valid option from the dropdown", dropdownValidation.ErrorBody, "Expected error body")
+	assert.Equal(t, "stop", dropdownValidation.ErrorStyle, "Expected error style")
+	assert.Equal(t, "Selection", dropdownValidation.PromptTitle, "Expected prompt title")
+	assert.Equal(t, "Please select from the list", dropdownValidation.PromptBody, "Expected prompt body")
 }
 
 // TestDataValidation_NumberRanges : Test number range validation
@@ -201,26 +218,27 @@ func TestDataValidation_NumberRanges(t *testing.T) {
 	// - Error messages are configurable
 
 	numberValidation := excelbuilder.DataValidationConfig{
-		Range:        "F2:F50",
-		Type:         "decimal",
-		Operator:     "between",
-		Formula:      "0",
-		Formula2:     "100",
-		ErrorMessage: "Please enter a number between 0 and 100",
-		ErrorTitle:   "Invalid Number",
-		ShowError:    true,
-		InputMessage: "Enter a percentage (0-100)",
-		InputTitle:   "Percentage Input",
-		ShowInput:    true,
+		Type:             "whole",
+		Operator:         "between",
+		Formula1:         []string{"1"},
+		Formula2:         []string{"100"},
+		ShowInputMessage: true,
+		ShowErrorMessage: true,
+		ErrorTitle:       "Invalid Number",
+		ErrorBody:        "The value must be a whole number between 1 and 100",
+		ErrorStyle:       "warning",
+		PromptTitle:      "Number Range",
+		PromptBody:       "Please enter a whole number between 1 and 100",
 	}
 
-	assert.Equal(t, "F2:F50", numberValidation.Range, "Expected range F2:F50")
-	assert.Equal(t, "decimal", numberValidation.Type, "Expected decimal validation type")
+	assert.Equal(t, "whole", numberValidation.Type, "Expected whole number validation type")
 	assert.Equal(t, "between", numberValidation.Operator, "Expected between operator")
-	assert.Equal(t, "0", numberValidation.Formula, "Expected min value 0")
-	assert.Equal(t, "100", numberValidation.Formula2, "Expected max value 100")
-	assert.True(t, numberValidation.ShowInput, "Expected input message to be shown")
-	assert.Equal(t, "Enter a percentage (0-100)", numberValidation.InputMessage, "Expected input message")
+	assert.Equal(t, []string{"1"}, numberValidation.Formula1, "Expected minimum value of 1")
+	assert.Equal(t, []string{"100"}, numberValidation.Formula2, "Expected maximum value of 100")
+	assert.True(t, numberValidation.ShowErrorMessage, "Expected error message to be shown")
+	assert.Equal(t, "Invalid Number", numberValidation.ErrorTitle, "Expected error title")
+	assert.True(t, numberValidation.ShowInputMessage, "Expected input message to be shown")
+	assert.Equal(t, "Number Range", numberValidation.PromptTitle, "Expected prompt title")
 }
 
 // TestDataValidation_DateRanges : Test date range validation
@@ -232,23 +250,22 @@ func TestDataValidation_DateRanges(t *testing.T) {
 	// - Custom date formats supported
 
 	dateValidation := excelbuilder.DataValidationConfig{
-		Range:        "G2:G30",
-		Type:         "date",
-		Operator:     "greaterThanOrEqual",
-		Formula:      "2024-01-01",
-		ErrorMessage: "Please enter a date from 2024 onwards",
-		ErrorTitle:   "Invalid Date",
-		ShowError:    true,
-		InputMessage: "Enter a date (YYYY-MM-DD format)",
-		InputTitle:   "Date Input",
-		ShowInput:    true,
+		Type:             "date",
+		Operator:         "greaterThanOrEqual",
+		Formula1:         []string{"2024-01-01"},
+		ShowInputMessage: true,
+		ShowErrorMessage: true,
+		ErrorTitle:       "Invalid Date",
+		ErrorBody:        "Please enter a date from 2024 onwards",
+		ErrorStyle:       "information",
+		PromptTitle:      "Date Input",
+		PromptBody:       "Enter a date (YYYY-MM-DD format)",
 	}
 
-	assert.Equal(t, "G2:G30", dateValidation.Range, "Expected range G2:G30")
 	assert.Equal(t, "date", dateValidation.Type, "Expected date validation type")
 	assert.Equal(t, "greaterThanOrEqual", dateValidation.Operator, "Expected greaterThanOrEqual operator")
-	assert.Equal(t, "2024-01-01", dateValidation.Formula, "Expected start date 2024-01-01")
-	assert.Equal(t, "Enter a date (YYYY-MM-DD format)", dateValidation.InputMessage, "Expected date input message")
+	assert.Equal(t, []string{"2024-01-01"}, dateValidation.Formula1, "Expected start date 2024-01-01")
+	assert.Equal(t, "Enter a date (YYYY-MM-DD format)", dateValidation.PromptBody, "Expected date input message")
 }
 
 // TestDataValidation_CustomFormulas : Test custom formula validation
@@ -260,21 +277,20 @@ func TestDataValidation_CustomFormulas(t *testing.T) {
 	// - Formula references are preserved
 
 	customValidation := excelbuilder.DataValidationConfig{
-		Range:        "H2:H20",
-		Type:         "custom",
-		Formula:      "AND(H2>=10, H2<=1000, MOD(H2,5)=0)", // Multiple of 5 between 10-1000
-		ErrorMessage: "Value must be a multiple of 5 between 10 and 1000",
-		ErrorTitle:   "Custom Validation Error",
-		ShowError:    true,
-		InputMessage: "Enter a multiple of 5 (10-1000)",
-		InputTitle:   "Custom Input",
-		ShowInput:    true,
+		Type:             "custom",
+		Formula1:         []string{"AND(H2>=10, H2<=1000, MOD(H2,5)=0)"},
+		ShowInputMessage: true,
+		ShowErrorMessage: true,
+		ErrorTitle:       "Custom Validation Error",
+		ErrorBody:        "Value must be a multiple of 5 between 10 and 1000",
+		ErrorStyle:       "stop",
+		PromptTitle:      "Custom Input",
+		PromptBody:       "Enter a multiple of 5 (10-1000)",
 	}
 
-	assert.Equal(t, "H2:H20", customValidation.Range, "Expected range H2:H20")
 	assert.Equal(t, "custom", customValidation.Type, "Expected custom validation type")
-	assert.Equal(t, "AND(H2>=10, H2<=1000, MOD(H2,5)=0)", customValidation.Formula, "Expected custom formula")
-	assert.Equal(t, "Value must be a multiple of 5 between 10 and 1000", customValidation.ErrorMessage, "Expected custom error message")
+	assert.Equal(t, []string{"AND(H2>=10, H2<=1000, MOD(H2,5)=0)"}, customValidation.Formula1, "Expected custom formula")
+	assert.Equal(t, "Value must be a multiple of 5 between 10 and 1000", customValidation.ErrorBody, "Expected custom error message")
 }
 
 // Test Case 3.3: Template System Tests

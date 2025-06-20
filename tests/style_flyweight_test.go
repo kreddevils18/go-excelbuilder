@@ -34,7 +34,7 @@ func TestStyleFlyweight_Creation(t *testing.T) {
 		},
 	}
 
-	flyweight := excelbuilder.NewStyleFlyweight(styleConfig)
+	flyweight := excelbuilder.NewStyleFlyweight(styleConfig, 0)
 
 	assert.NotNil(t, flyweight, "Expected StyleFlyweight instance, got nil")
 
@@ -67,7 +67,7 @@ func TestStyleFlyweight_Apply(t *testing.T) {
 		},
 	}
 
-	flyweight := excelbuilder.NewStyleFlyweight(styleConfig)
+	flyweight := excelbuilder.NewStyleFlyweight(styleConfig, 0)
 	file := excelize.NewFile()
 
 	// Apply style to a cell
@@ -95,7 +95,7 @@ func TestStyleFlyweight_Immutability(t *testing.T) {
 		},
 	}
 
-	flyweight := excelbuilder.NewStyleFlyweight(originalConfig)
+	flyweight := excelbuilder.NewStyleFlyweight(originalConfig, 0)
 
 	// Get config and try to modify it
 	config := flyweight.GetConfig()
@@ -142,7 +142,7 @@ func TestStyleFlyweight_ComplexStyle(t *testing.T) {
 		},
 	}
 
-	flyweight := excelbuilder.NewStyleFlyweight(complexConfig)
+	flyweight := excelbuilder.NewStyleFlyweight(complexConfig, 0)
 	config := flyweight.GetConfig()
 
 	// Verify all properties are preserved
@@ -178,7 +178,7 @@ func TestStyleFlyweight_Performance(t *testing.T) {
 		},
 	}
 
-	flyweight := excelbuilder.NewStyleFlyweight(styleConfig)
+	flyweight := excelbuilder.NewStyleFlyweight(styleConfig, 0)
 	file := excelize.NewFile()
 
 	// Apply style to many cells
@@ -221,7 +221,7 @@ func TestStyleFlyweight_ErrorHandling(t *testing.T) {
 		},
 	}
 
-	flyweight := excelbuilder.NewStyleFlyweight(styleConfig)
+	flyweight := excelbuilder.NewStyleFlyweight(styleConfig, 0)
 	file := excelize.NewFile()
 
 	// Test with invalid cell reference
@@ -266,9 +266,9 @@ func TestStyleFlyweight_HashAndEquality(t *testing.T) {
 		},
 	}
 
-	flyweight1 := excelbuilder.NewStyleFlyweight(styleConfig1)
-	flyweight2 := excelbuilder.NewStyleFlyweight(styleConfig2)
-	flyweight3 := excelbuilder.NewStyleFlyweight(styleConfig3)
+	flyweight1 := excelbuilder.NewStyleFlyweight(styleConfig1, 0)
+	flyweight2 := excelbuilder.NewStyleFlyweight(styleConfig2, 0)
+	flyweight3 := excelbuilder.NewStyleFlyweight(styleConfig3, 0)
 
 	// Same configs should produce same hash
 	hash1 := flyweight1.Hash()

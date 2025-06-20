@@ -6,6 +6,7 @@ import (
 
 	"github.com/kreddevils18/go-excelbuilder/pkg/excelbuilder"
 	"github.com/stretchr/testify/assert"
+	"github.com/xuri/excelize/v2"
 )
 
 // Test Case 8.1: StyleManager Creation and Initialization
@@ -30,7 +31,8 @@ func TestStyleManager_New(t *testing.T) {
 		},
 	}
 
-	style := manager.GetStyle(styleConfig)
+	file := excelize.NewFile()
+	style := manager.GetStyle(styleConfig, file)
 	assert.NotNil(t, style, "Expected StyleFlyweight instance, got nil")
 }
 
@@ -57,8 +59,9 @@ func TestStyleManager_StyleCaching(t *testing.T) {
 	}
 
 	// Get style twice with same config
-	style1 := manager.GetStyle(styleConfig)
-	style2 := manager.GetStyle(styleConfig)
+	file := excelize.NewFile()
+	style1 := manager.GetStyle(styleConfig, file)
+	style2 := manager.GetStyle(styleConfig, file)
 
 	// Should return the same instance (pointer equality)
 	assert.Same(t, style1, style2, "Expected same StyleFlyweight instance for identical configs")
@@ -100,7 +103,8 @@ func TestStyleManager_ThreadSafety(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < numOperations; j++ {
-				style := manager.GetStyle(styleConfig)
+				file := excelize.NewFile()
+				style := manager.GetStyle(styleConfig, file)
 				mu.Lock()
 				results[resultIndex] = style
 				resultIndex++
@@ -154,9 +158,10 @@ func TestStyleManager_DifferentStyles(t *testing.T) {
 		},
 	}
 
-	style1 := manager.GetStyle(style1Config)
-	style2 := manager.GetStyle(style2Config)
-	style3 := manager.GetStyle(style3Config)
+	file := excelize.NewFile()
+	style1 := manager.GetStyle(style1Config, file)
+	style2 := manager.GetStyle(style2Config, file)
+	style3 := manager.GetStyle(style3Config, file)
 
 	// All should be different instances
 	assert.NotSame(t, style1, style2, "Expected different StyleFlyweight instances")
@@ -229,7 +234,8 @@ func TestStyleManager_MemoryOptimization(t *testing.T) {
 	styles := make([]*excelbuilder.StyleFlyweight, numRequests)
 
 	for i := 0; i < numRequests; i++ {
-		styles[i] = manager.GetStyle(styleConfig)
+		file := excelize.NewFile()
+		styles[i] = manager.GetStyle(styleConfig, file)
 	}
 
 	// All should be the same instance

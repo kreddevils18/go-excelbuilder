@@ -360,3 +360,37 @@ type PivotTableConfig struct {
 	Outline              bool
 	Subtotals            bool
 }
+
+// Advanced Layout Management types
+
+// GroupingConfig defines configuration for column/row grouping
+type GroupingConfig struct {
+	Level     int
+	Collapsed bool
+	Summary   bool
+}
+
+// PaneConfig defines configuration for freeze/split panes
+type PaneConfig struct {
+	Type         string // "freeze" or "split"
+	TopLeftCell  string // For freeze panes
+	XSplit       int    // For split panes - horizontal split position
+	YSplit       int    // For split panes - vertical split position
+	ActivePane   string // Which pane is active
+}
+
+// LayoutRange defines a range for layout operations
+type LayoutRange struct {
+	StartColumn string
+	EndColumn   string
+	StartRow    int
+	EndRow      int
+}
+
+// AutoFitConfig defines configuration for auto-fitting columns
+type AutoFitConfig struct {
+	MinWidth    float64
+	MaxWidth    float64
+	Padding     float64
+	IgnoreEmpty bool
+}

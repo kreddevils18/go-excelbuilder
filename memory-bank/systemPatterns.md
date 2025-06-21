@@ -22,9 +22,12 @@ Director (ExcelBuilder)
 ├── ConcreteBuilder (RowBuilder)
 │   ├── Product: Row
 │   └── BuildParts: AddCell, SetHeight
-└── ConcreteBuilder (CellBuilder)
-    ├── Product: Cell
-    └── BuildParts: WithStyle, WithFormat
+├── ConcreteBuilder (CellBuilder)
+│   ├── Product: Cell
+│   └── BuildParts: WithStyle, WithFormat
+└── ConcreteBuilder (AdvancedLayoutManager)
+    ├── Product: Layout Configuration
+    └── BuildParts: GroupColumns, GroupRows, FreezePane, SplitPane, AutoFitColumns
 ```
 
 #### Key Components
@@ -86,20 +89,67 @@ func (sf *StyleFlyweight) Apply(f *excelize.File, cellRef string) error {
 func (rb *RowBuilder) SetHeight(height float64) *RowBuilder {
     if height <= 0 || height > 409.5 {
         return nil // Invalid input
+}
+// Proceed with excelize operation
+}
+```
+
+**AdvancedLayoutManager (ConcreteBuilder)**
+- Manages advanced Excel layout operations
+- Provides fluent API for layout configuration
+- Handles grouping, panes, sizing, and visibility
+- Integrates seamlessly with SheetBuilder
+- Supports method chaining for complex layouts
+
+### 3. Advanced Layout Management Pattern
+
+#### Pattern Structure
+```go
+type AdvancedLayoutManager struct {
+    sheetBuilder *SheetBuilder
+    file         *excelize.File
+    sheetName    string
+}
+
+// Core layout operations
+func (alm *AdvancedLayoutManager) GroupColumns(columnRange string, level int) *AdvancedLayoutManager
+func (alm *AdvancedLayoutManager) GroupRows(startRow, endRow, level int) *AdvancedLayoutManager
+func (alm *AdvancedLayoutManager) FreezePane(cell string) *AdvancedLayoutManager
+func (alm *AdvancedLayoutManager) SplitPane(row, col int) *AdvancedLayoutManager
+func (alm *AdvancedLayoutManager) AutoFitColumns(columnRange string) *AdvancedLayoutManager
+```
+
+#### Key Features
+
+**Fluent Interface Pattern**:
+```go
+// Method chaining for complex layouts
+layoutManager.
+    GroupColumns("B:E", 1).
+    FreezePane("B2").
+    AutoFitColumns("A:H").
+    SetColumnWidthRange("B:E", 12.0)
+```
+
+**Input Validation Pattern**:
+```go
+// Comprehensive validation before excelize operations
+func (alm *AdvancedLayoutManager) GroupColumns(columnRange string, level int) *AdvancedLayoutManager {
+    if level < 1 || level > 7 {
+        return nil // Invalid outline level
     }
+    // Validate column range format
     // Proceed with excelize operation
 }
 ```
-- Builds row-level configurations
-- Manages cells within row
-- Handles row-specific styling
-- Tracks column position
 
-**CellBuilder (ConcreteBuilder)**
-- Builds individual cell configurations
-- Applies values and styles
-- Handles cell-specific formatting
-- Integrates with StyleManager
+**Integration Pattern**:
+```go
+// Seamless integration with SheetBuilder
+func (sb *SheetBuilder) GetLayoutManager() *AdvancedLayoutManager {
+    return NewAdvancedLayoutManager(sb, sb.file, sb.sheetName)
+}
+```
 
 #### Benefits
 - **Fluent Interface**: Natural, readable API

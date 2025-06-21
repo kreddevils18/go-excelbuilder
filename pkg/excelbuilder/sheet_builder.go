@@ -420,6 +420,11 @@ func (sb *SheetBuilder) NewPivotTable(targetSheet, sourceRange string) *PivotTab
 	return NewPivotTableBuilder(sb, targetSheet, sourceRange)
 }
 
+// GetLayoutManager returns an AdvancedLayoutManager for this sheet
+func (sb *SheetBuilder) GetLayoutManager() *AdvancedLayoutManager {
+	return NewAdvancedLayoutManager(sb)
+}
+
 // Done returns to the WorkbookBuilder
 func (sb *SheetBuilder) Done() *WorkbookBuilder {
 	return sb.workbookBuilder

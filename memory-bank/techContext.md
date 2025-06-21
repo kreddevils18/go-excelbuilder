@@ -83,6 +83,29 @@ import "reflect"
 - Memory-efficient streaming for large datasets
 - Optimized reflection usage for dynamic data handling
 - Proper resource cleanup and error handling
+
+### Advanced Layout Management System
+
+#### Core Components
+- **AdvancedLayoutManager**: Main interface for layout operations
+- **Layout Data Structures**: GroupingConfig, PaneConfig, LayoutRange, AutoFitConfig
+- **Integration Layer**: Seamless integration with SheetBuilder
+- **Validation System**: Comprehensive input validation and error handling
+
+#### Key Features
+- Column and row grouping with outline levels (1-7)
+- Freeze and split panes for enhanced navigation
+- Auto-fit columns with configurable ranges
+- Custom column width and row height setting
+- Hide/show operations for columns and rows
+- Fluent API with method chaining support
+
+#### Technical Implementation
+- Direct integration with excelize library for Excel operations
+- Comprehensive input validation before excelize calls
+- Error handling with nil returns for invalid operations
+- Range parsing and validation for Excel compatibility
+- Memory-efficient operations without unnecessary object creation
 ```
 
 #### Code Quality Tools

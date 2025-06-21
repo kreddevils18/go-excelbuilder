@@ -41,12 +41,18 @@ Go Excel Builder là một package Golang được thiết kế để đơn gi�
 - Cell merging
 - Comprehensive testing
 
+**Completed Features:**
+- Chart creation ✅
+- Pivot tables ✅
+- Data validation ✅
+- Import/Export functionality ✅
+
 **Out of Scope (Future):**
-- Chart creation
-- Pivot tables
 - Advanced conditional formatting
 - Template-based generation
 - Streaming support
+- Real-time collaboration
+- Cloud integration
 
 ## Technical Constraints
 - Go 1.21+

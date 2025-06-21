@@ -333,3 +333,30 @@ type ImportHelper struct {
 type ExportHelper struct {
 	file *excelize.File
 }
+
+// Pivot Table types
+
+// PivotField defines a field in a pivot table
+type PivotField struct {
+	Name     string
+	Function string // For value fields: "sum", "count", "average", "max", "min", "product", "countNums", "stdDev", "stdDevp", "var", "varp"
+}
+
+// PivotTableConfig defines the configuration for a pivot table
+type PivotTableConfig struct {
+	Name                  string
+	SourceSheet          string
+	SourceRange          string
+	TargetSheet          string
+	TargetCell           string
+	RowFields            []PivotField
+	ColumnFields         []PivotField
+	ValueFields          []PivotField
+	FilterFields         []PivotField
+	Style                string
+	ShowRowGrandTotals   bool
+	ShowColumnGrandTotals bool
+	Compact              bool
+	Outline              bool
+	Subtotals            bool
+}

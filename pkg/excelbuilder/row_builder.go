@@ -28,6 +28,14 @@ func (rb *RowBuilder) AddCell(value interface{}) *CellBuilder {
 	}
 }
 
+// AddCells adds multiple cells with the given values and returns the RowBuilder
+func (rb *RowBuilder) AddCells(values ...interface{}) *RowBuilder {
+	for _, value := range values {
+		rb.AddCell(value)
+	}
+	return rb
+}
+
 // SetHeight sets the height of the current row
 func (rb *RowBuilder) SetHeight(height float64) *RowBuilder {
 	// Validate height input

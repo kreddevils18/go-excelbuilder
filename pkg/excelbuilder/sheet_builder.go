@@ -415,6 +415,11 @@ func (sb *SheetBuilder) WithTabColorIndexed(index int) *SheetBuilder {
 	return sb
 }
 
+// NewPivotTable creates a new PivotTableBuilder for this sheet
+func (sb *SheetBuilder) NewPivotTable(targetSheet, sourceRange string) *PivotTableBuilder {
+	return NewPivotTableBuilder(sb, targetSheet, sourceRange)
+}
+
 // Done returns to the WorkbookBuilder
 func (sb *SheetBuilder) Done() *WorkbookBuilder {
 	return sb.workbookBuilder

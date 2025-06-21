@@ -42,12 +42,12 @@ func (sb *SheetBuilder) SetColumnWidth(col string, width float64) *SheetBuilder 
 	if col == "" {
 		return nil
 	}
-	
+
 	// Validate width (negative or extremely large values)
 	if width < 0 || width > 255 {
 		return nil
 	}
-	
+
 	// Validate column format (should be A-Z, AA-ZZ, etc., not contain numbers)
 	if !isValidColumnName(col) {
 		return nil
@@ -118,25 +118,25 @@ func (sb *SheetBuilder) MergeCell(cellRange string) *SheetBuilder {
 	if cellRange == "" {
 		return nil
 	}
-	
+
 	// Parse the range to get start and end cells
 	// For simplicity, assume cellRange is in format "A1:C1"
 	parts := strings.Split(cellRange, ":")
 	if len(parts) != 2 {
 		return nil
 	}
-	
+
 	// Validate that start and end cells are different
 	if parts[0] == parts[1] {
 		// Single cell merge is allowed but should be handled gracefully
 		return sb
 	}
-	
+
 	// Check for reverse range (e.g., "D1:A1")
 	if isReverseRange(parts[0], parts[1]) {
 		return nil
 	}
-	
+
 	err := sb.workbookBuilder.file.MergeCell(sb.sheetName, parts[0], parts[1])
 	if err != nil {
 		return nil
@@ -238,6 +238,18 @@ func (sb *SheetBuilder) SetConditionalFormatting(config ConditionalFormattingCon
 	return sb
 }
 
+// AddRowsBatch adds multiple rows with data in a single operation
+func (sb *SheetBuilder) AddRowsBatch(batchData [][]interface{}) *SheetBuilder {
+	for _, rowData := range batchData {
+		row := sb.AddRow()
+		for _, cellData := range rowData {
+			row.AddCell(cellData).Done()
+		}
+		row.Done()
+	}
+	return sb
+}
+
 // AddRowsBatchWithStyles adds multiple rows with individual styles.
 func (sb *SheetBuilder) AddRowsBatchWithStyles(batchData []BatchRowData) *SheetBuilder {
 	for _, rowData := range batchData {
@@ -332,26 +344,26 @@ func isValidColumnName(columnName string) bool {
 	if columnName == "" {
 		return false
 	}
-	
+
 	// Check if all characters are uppercase letters
 	for _, char := range columnName {
 		if char < 'A' || char > 'Z' {
 			return false
 		}
 	}
-	
+
 	// Check length (Excel supports up to 3 characters: A-XFD)
 	if len(columnName) > 3 {
 		return false
 	}
-	
+
 	// Additional validation for maximum column (XFD = 16384)
 	if len(columnName) == 3 {
 		if columnName > "XFD" {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -360,11 +372,11 @@ func isReverseRange(startCell, endCell string) bool {
 	// Parse cell coordinates
 	startCol, startRow, err1 := excelize.CellNameToCoordinates(startCell)
 	endCol, endRow, err2 := excelize.CellNameToCoordinates(endCell)
-	
+
 	if err1 != nil || err2 != nil {
 		return true // Invalid cell references are considered reverse
 	}
-	
+
 	// Check if start is after end (reverse range)
 	return startCol > endCol || startRow > endRow
 }

@@ -345,20 +345,20 @@ type PivotField struct {
 // PivotTableConfig defines the configuration for a pivot table
 type PivotTableConfig struct {
 	Name                  string
-	SourceSheet          string
-	SourceRange          string
-	TargetSheet          string
-	TargetCell           string
-	RowFields            []PivotField
-	ColumnFields         []PivotField
-	ValueFields          []PivotField
-	FilterFields         []PivotField
-	Style                string
-	ShowRowGrandTotals   bool
+	SourceSheet           string
+	SourceRange           string
+	TargetSheet           string
+	TargetCell            string
+	RowFields             []PivotField
+	ColumnFields          []PivotField
+	ValueFields           []PivotField
+	FilterFields          []PivotField
+	Style                 string
+	ShowRowGrandTotals    bool
 	ShowColumnGrandTotals bool
-	Compact              bool
-	Outline              bool
-	Subtotals            bool
+	Compact               bool
+	Outline               bool
+	Subtotals             bool
 }
 
 // Advanced Layout Management types
@@ -372,11 +372,11 @@ type GroupingConfig struct {
 
 // PaneConfig defines configuration for freeze/split panes
 type PaneConfig struct {
-	Type         string // "freeze" or "split"
-	TopLeftCell  string // For freeze panes
-	XSplit       int    // For split panes - horizontal split position
-	YSplit       int    // For split panes - vertical split position
-	ActivePane   string // Which pane is active
+	Type        string // "freeze" or "split"
+	TopLeftCell string // For freeze panes
+	XSplit      int    // For split panes - horizontal split position
+	YSplit      int    // For split panes - vertical split position
+	ActivePane  string // Which pane is active
 }
 
 // LayoutRange defines a range for layout operations
@@ -393,4 +393,12 @@ type AutoFitConfig struct {
 	MaxWidth    float64
 	Padding     float64
 	IgnoreEmpty bool
+}
+
+// PivotConfig defines configuration for data pivoting
+type PivotConfig struct {
+	RowFields    []string
+	ColumnFields []string
+	ValueFields  []string
+	Aggregation  string
 }

@@ -8,8 +8,9 @@ import (
 
 // CellBuilder handles cell-level operations
 type CellBuilder struct {
-	rowBuilder *RowBuilder
-	cellRef    string
+	rowBuilder   *RowBuilder
+	sheetBuilder *SheetBuilder
+	cellRef      string
 }
 
 // SetNumberFormat sets the number format for the cell
@@ -42,12 +43,23 @@ func (cb *CellBuilder) SetNumberFormat(format string) *CellBuilder {
 
 // SetStyle applies a style configuration to the cell using StyleManager
 func (cb *CellBuilder) SetStyle(config StyleConfig) *CellBuilder {
+	var sheetBuilder *SheetBuilder
+	
+	// Handle both cases: called from RowBuilder or directly from SetCell
+	if cb.rowBuilder != nil {
+		sheetBuilder = cb.rowBuilder.sheetBuilder
+	} else if cb.sheetBuilder != nil {
+		sheetBuilder = cb.sheetBuilder
+	} else {
+		return nil
+	}
+
 	// Get style flyweight from StyleManager
-	styleFlyweight := cb.rowBuilder.sheetBuilder.workbookBuilder.excelBuilder.styleManager.GetStyle(config, cb.rowBuilder.sheetBuilder.workbookBuilder.file)
+	styleFlyweight := sheetBuilder.workbookBuilder.excelBuilder.styleManager.GetStyle(config, sheetBuilder.workbookBuilder.file)
 
 	// Apply style to the cell
 	err := styleFlyweight.Apply(
-		cb.rowBuilder.sheetBuilder.workbookBuilder.file,
+		sheetBuilder.workbookBuilder.file,
 		cb.cellRef,
 	)
 	if err != nil {

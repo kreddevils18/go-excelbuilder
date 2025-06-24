@@ -112,6 +112,30 @@ func (sb *SheetBuilder) AutoSizeColumns() *SheetBuilder {
 	return sb
 }
 
+// SetCell sets the value of a specific cell and returns a CellBuilder
+func (sb *SheetBuilder) SetCell(cellRef string, value interface{}) *CellBuilder {
+	// Validate input
+	if cellRef == "" {
+		return nil
+	}
+
+	err := sb.workbookBuilder.file.SetCellValue(sb.sheetName, cellRef, value)
+	if err != nil {
+		return nil
+	}
+
+	return &CellBuilder{
+		rowBuilder: nil, // This will be nil since we're setting directly by reference
+		cellRef:    cellRef,
+		sheetBuilder: sb, // Add reference to sheet builder
+	}
+}
+
+// MergeRange merges cells in the specified range (alias for MergeCell)
+func (sb *SheetBuilder) MergeRange(cellRange string) *SheetBuilder {
+	return sb.MergeCell(cellRange)
+}
+
 // MergeCell merges cells in the specified range
 func (sb *SheetBuilder) MergeCell(cellRange string) *SheetBuilder {
 	// Validate input

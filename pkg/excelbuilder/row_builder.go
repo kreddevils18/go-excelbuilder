@@ -23,8 +23,9 @@ func (rb *RowBuilder) AddCell(value interface{}) *CellBuilder {
 	}
 
 	return &CellBuilder{
-		rowBuilder: rb,
-		cellRef:    cellRef,
+		rowBuilder:   rb,
+		sheetBuilder: rb.sheetBuilder,
+		cellRef:      cellRef,
 	}
 }
 

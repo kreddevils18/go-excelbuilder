@@ -39,11 +39,11 @@ func (rb *RowBuilder) AddCells(values ...interface{}) *RowBuilder {
 
 // SetHeight sets the height of the current row
 func (rb *RowBuilder) SetHeight(height float64) *RowBuilder {
-	// Validate height input
-	if height <= 0 || height > 409.5 {
+	// Validate height input. Max row height in Excel is 409.
+	if height <= 0 || height > 409 {
 		return nil
 	}
-	
+
 	err := rb.sheetBuilder.workbookBuilder.file.SetRowHeight(rb.sheetBuilder.sheetName, rb.rowIndex, height)
 	if err != nil {
 		return nil

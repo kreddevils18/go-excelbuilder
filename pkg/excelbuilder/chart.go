@@ -1,36 +1,34 @@
 package excelbuilder
 
 import (
-	"fmt"
-
 	"github.com/xuri/excelize/v2"
 )
 
-// ChartBuilder provides a fluent interface for creating charts
+// ChartBuilder handles chart creation and configuration
 type ChartBuilder struct {
-	file   *excelize.File
-	sheet  string
-	config ChartConfig
-	cell   string // Position where chart will be placed
+	file      *excelize.File
+	sheetName string
+	config    ChartConfig
+	cell      string // Position where chart will be placed
 }
 
 // NewChartBuilder creates a new ChartBuilder instance
-func NewChartBuilder(file *excelize.File, sheet string) *ChartBuilder {
+func NewChartBuilder(file *excelize.File, sheetName string) *ChartBuilder {
 	return &ChartBuilder{
-		file:  file,
-		sheet: sheet,
+		file:      file,
+		sheetName: sheetName,
 		config: ChartConfig{
-			Width:  480,
-			Height: 290,
+			Width:  480, // Default width
+			Height: 290, // Default height
 			Legend: LegendConfig{
-				Show:     true,
 				Position: "bottom",
+				Show:     true,
 			},
 		},
 	}
 }
 
-// SetType sets the chart type
+// SetType sets the chart type (e.g., "col", "bar", "pie")
 func (cb *ChartBuilder) SetType(chartType string) *ChartBuilder {
 	cb.config.Type = chartType
 	return cb
@@ -42,28 +40,10 @@ func (cb *ChartBuilder) SetTitle(title string) *ChartBuilder {
 	return cb
 }
 
-// SetSize sets the chart dimensions
-func (cb *ChartBuilder) SetSize(width, height int) *ChartBuilder {
+// SetDimensions sets the width and height of the chart.
+func (cb *ChartBuilder) SetDimensions(width, height int) *ChartBuilder {
 	cb.config.Width = width
 	cb.config.Height = height
-	return cb
-}
-
-// SetPosition sets where the chart will be placed
-func (cb *ChartBuilder) SetPosition(cell string) *ChartBuilder {
-	cb.cell = cell
-	return cb
-}
-
-// SetXAxis configures the X axis
-func (cb *ChartBuilder) SetXAxis(config AxisConfig) *ChartBuilder {
-	cb.config.XAxis = config
-	return cb
-}
-
-// SetYAxis configures the Y axis
-func (cb *ChartBuilder) SetYAxis(config AxisConfig) *ChartBuilder {
-	cb.config.YAxis = config
 	return cb
 }
 
@@ -73,46 +53,44 @@ func (cb *ChartBuilder) SetLegend(config LegendConfig) *ChartBuilder {
 	return cb
 }
 
+// SetXAxis configures the X-axis of the chart
+func (cb *ChartBuilder) SetXAxis(config AxisConfig) *ChartBuilder {
+	cb.config.XAxis = config
+	return cb
+}
+
+// SetYAxis configures the Y-axis of the chart
+func (cb *ChartBuilder) SetYAxis(config AxisConfig) *ChartBuilder {
+	cb.config.YAxis = config
+	return cb
+}
+
 // AddDataSeries adds a data series to the chart
 func (cb *ChartBuilder) AddDataSeries(series DataSeries) *ChartBuilder {
 	cb.config.DataSeries = append(cb.config.DataSeries, series)
 	return cb
 }
 
-// Build creates the chart in the Excel file
-func (cb *ChartBuilder) Build() error {
-	if cb.file == nil {
-		return fmt.Errorf("file is nil")
-	}
-
-	if cb.config.Type == "" {
-		return fmt.Errorf("chart type is required")
-	}
-
-	if len(cb.config.DataSeries) == 0 {
-		return fmt.Errorf("at least one data series is required")
-	}
-
-	if cb.cell == "" {
-		cb.cell = "A1" // Default position
-	}
-
-	// Convert our config to excelize chart format
-	excelizeChart := cb.convertToExcelizeChart()
-
-	// Add chart to the file
-	err := cb.file.AddChart(cb.sheet, cb.cell, excelizeChart)
-	if err != nil {
-		return fmt.Errorf("failed to add chart: %w", err)
-	}
-
-	return nil
+// SetPosition sets the top-left cell where the chart will be placed
+func (cb *ChartBuilder) SetPosition(cell string) *ChartBuilder {
+	cb.cell = cell
+	return cb
 }
 
-// convertToExcelizeChart converts our ChartConfig to excelize chart format
-func (cb *ChartBuilder) convertToExcelizeChart() *excelize.Chart {
-	chart := &excelize.Chart{
-		Type: cb.mapChartType(cb.config.Type),
+// Build creates the chart and adds it to the sheet.
+func (cb *ChartBuilder) Build() error {
+	var series []excelize.ChartSeries
+	for _, s := range cb.config.DataSeries {
+		series = append(series, excelize.ChartSeries{
+			Name:       s.Name,
+			Categories: s.Categories,
+			Values:     s.Values,
+			Fill:       excelize.Fill{Color: []string{s.Color}},
+		})
+	}
+
+	chartOptions := &excelize.Chart{
+		Type: mapChartType(cb.config.Type),
 		Dimension: excelize.ChartDimension{
 			Width:  uint(cb.config.Width),
 			Height: uint(cb.config.Height),
@@ -126,59 +104,25 @@ func (cb *ChartBuilder) convertToExcelizeChart() *excelize.Chart {
 			Position:      cb.config.Legend.Position,
 			ShowLegendKey: cb.config.Legend.Show,
 		},
+		Series: series,
 	}
 
-	// Add data series
-	for _, series := range cb.config.DataSeries {
-		excelizeSeries := excelize.ChartSeries{
-			Name:       series.Name,
-			Categories: fmt.Sprintf("%s!%s", cb.sheet, series.Categories),
-			Values:     fmt.Sprintf("%s!%s", cb.sheet, series.Values),
-		}
-
-		if series.Color != "" {
-			excelizeSeries.Fill = excelize.Fill{
-				Type:  "pattern",
-				Color: []string{series.Color},
-			}
-		}
-
-		chart.Series = append(chart.Series, excelizeSeries)
-	}
-
-	// Configure axes if specified
-	if cb.config.XAxis.Title != "" {
-		chart.XAxis.Title = []excelize.RichTextRun{
-			{
-				Text: cb.config.XAxis.Title,
-			},
-		}
-	}
-
-	if cb.config.YAxis.Title != "" {
-		chart.YAxis.Title = []excelize.RichTextRun{
-			{
-				Text: cb.config.YAxis.Title,
-			},
-		}
-	}
-
-	return chart
+	return cb.file.AddChart(cb.sheetName, cb.cell, chartOptions)
 }
 
-// mapChartType maps our chart types to excelize chart types
-func (cb *ChartBuilder) mapChartType(chartType string) excelize.ChartType {
+// mapChartType converts a string representation of a chart type to the excelize constant.
+func mapChartType(chartType string) excelize.ChartType {
 	switch chartType {
+	case "col":
+		return excelize.Col
+	case "bar":
+		return excelize.Bar
 	case "line":
 		return excelize.Line
-	case "bar":
-		return excelize.Col
 	case "pie":
 		return excelize.Pie
 	case "scatter":
 		return excelize.Scatter
-	case "area":
-		return excelize.Area
 	default:
 		return excelize.Col // Default to column chart
 	}

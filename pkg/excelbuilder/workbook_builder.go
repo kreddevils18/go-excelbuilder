@@ -82,6 +82,17 @@ func (wb *WorkbookBuilder) AddSheetsBatch(sheets []SheetConfig) *WorkbookBuilder
 	return wb
 }
 
+// SetActiveSheet sets the active sheet of the workbook.
+func (wb *WorkbookBuilder) SetActiveSheet(name string) *WorkbookBuilder {
+	index, err := wb.file.GetSheetIndex(name)
+	if err != nil {
+		// Sheet not found, do nothing
+		return wb
+	}
+	wb.file.SetActiveSheet(index)
+	return wb
+}
+
 // Build returns the final excelize.File
 func (wb *WorkbookBuilder) Build() *excelize.File {
 	return wb.file

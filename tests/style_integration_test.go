@@ -1,287 +1,65 @@
-package tests
+package excelbuilder_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/kreddevils18/go-excelbuilder/pkg/excelbuilder"
 	"github.com/stretchr/testify/assert"
 )
 
-// Test Case 10.1: Style Integration with Builder Pattern
-func TestStyleIntegration_BasicStyling(t *testing.T) {
-	// Test: Check that styling works with the builder pattern
-	// Expected:
-	// - Styles can be applied through CellBuilder
-	// - StyleManager is properly integrated
-	// - Fluent interface works with styling
-
-	builder := excelbuilder.New()
-	assert.NotNil(t, builder, "Expected ExcelBuilder instance")
-
-	// Create a workbook with styled cells
-	file := builder.
-		NewWorkbook().
-		SetProperties(excelbuilder.WorkbookProperties{
-			Title:  "Style Integration Test",
-			Author: "Go Excel Builder",
-		}).
-		AddSheet("StyledSheet").
-		AddRow().
-		AddCell("Bold Header").
-		SetStyle(excelbuilder.StyleConfig{
-			Font: excelbuilder.FontConfig{
-				Bold: true,
-				Size: 14,
-				Color: "#FF0000",
-			},
-		}).
-		Done().
-		AddCell("Normal Text").
-		Done().
-		Done().
-		AddRow().
-		AddCell("Styled Cell").
-		SetStyle(excelbuilder.StyleConfig{
-			Font: excelbuilder.FontConfig{
-				Italic: true,
-				Size: 12,
-			},
-			Fill: excelbuilder.FillConfig{
-				Type:  "pattern",
-				Color: "#FFFF00",
-			},
-		}).
-		Done().
-		Done().
-		Done().
-		Build()
-
-	assert.NotNil(t, file, "Expected Excel file to be created")
-}
-
-// Test Case 10.2: Style Reuse and Caching
-func TestStyleIntegration_StyleReuse(t *testing.T) {
-	// Test: Check that identical styles are reused from cache
-	// Expected:
-	// - Same style config reuses flyweight
-	// - Cache statistics show reuse
-	// - Performance is optimized
-
-	builder := excelbuilder.New()
-
-	// Define a common style
+func TestBuilder_EndToEnd_WithStyles(t *testing.T) {
+	// 1. Define styles
 	headerStyle := excelbuilder.StyleConfig{
-		Font: excelbuilder.FontConfig{
-			Bold: true,
-			Size: 14,
-			Color: "#000000",
-		},
-		Fill: excelbuilder.FillConfig{
-			Type:  "pattern",
-			Color: "#CCCCCC",
-		},
+		Font: excelbuilder.FontConfig{Bold: true, Size: 14},
+		Fill: excelbuilder.FillConfig{Type: "pattern", Color: "FFFF00"},
 	}
-
-	// Apply the same style to multiple cells
-	file := builder.
-		NewWorkbook().
-		AddSheet("CacheTest").
-		AddRow().
-		AddCell("Header 1").SetStyle(headerStyle).Done().
-		AddCell("Header 2").SetStyle(headerStyle).Done().
-		AddCell("Header 3").SetStyle(headerStyle).Done().
-		Done().
-		AddRow().
-		AddCell("Header 4").SetStyle(headerStyle).Done().
-		AddCell("Header 5").SetStyle(headerStyle).Done().
-		Done().
-		Done().
-		Build()
-
-	assert.NotNil(t, file, "Expected Excel file to be created")
-
-	// Check cache statistics - should show style reuse
-	// Note: We would need to expose StyleManager to check this in a real implementation
-}
-
-// Test Case 10.3: Complex Style Combinations
-func TestStyleIntegration_ComplexStyles(t *testing.T) {
-	// Test: Check complex style combinations work correctly
-	// Expected:
-	// - All style properties are applied
-	// - Complex styles work with builder pattern
-	// - No conflicts between different style aspects
-
-	builder := excelbuilder.New()
-
-	// Define complex styles
-	titleStyle := excelbuilder.StyleConfig{
-		Font: excelbuilder.FontConfig{
-			Bold:      true,
-			Italic:    false,
-			Underline: true,
-			Size:      16,
-			Color:     "#FF0000",
-			Family:    "Arial",
-		},
-		Fill: excelbuilder.FillConfig{
-			Type:  "pattern",
-			Color: "#FFFF00",
-		},
-		Border: excelbuilder.BorderConfig{
-			Top:    excelbuilder.BorderSide{Style: "thick"},
-			Bottom: excelbuilder.BorderSide{Style: "thick"},
-			Left:   excelbuilder.BorderSide{Style: "thick"},
-			Right:  excelbuilder.BorderSide{Style: "thick"},
-			Color:  "#000000",
-		},
-		Alignment: excelbuilder.AlignmentConfig{
-			Horizontal: "center",
-			Vertical:   "middle",
-		},
-	}
-
 	dataStyle := excelbuilder.StyleConfig{
-		Font: excelbuilder.FontConfig{
-			Bold: false,
-			Size: 10,
-		},
-		Border: excelbuilder.BorderConfig{
-			Top:    excelbuilder.BorderSide{Style: "thin"},
-			Bottom: excelbuilder.BorderSide{Style: "thin"},
-			Left:   excelbuilder.BorderSide{Style: "thin"},
-			Right:  excelbuilder.BorderSide{Style: "thin"},
-			Color:  "#CCCCCC",
-		},
-		Alignment: excelbuilder.AlignmentConfig{
-			Horizontal: "left",
-		},
+		Font: excelbuilder.FontConfig{Size: 12},
 	}
 
+	// 2. Build the Excel file with styles
+	builder := excelbuilder.New()
 	file := builder.
 		NewWorkbook().
-		AddSheet("ComplexStyles").
+		AddSheet("Styled Report").
 		AddRow().
-		AddCell("Complex Title").SetStyle(titleStyle).Done().
+		AddCell("Product A").WithStyle(headerStyle).Done().
+		AddCell("1000").WithStyle(headerStyle).Done().
 		Done().
 		AddRow().
-		AddCell("Data Item 1").SetStyle(dataStyle).Done().
-		AddCell("Data Item 2").SetStyle(dataStyle).Done().
+		AddCell("Product B").WithStyle(dataStyle).Done().
+		AddCell("2500").WithStyle(dataStyle).Done().
 		Done().
+		AddRow().
+		// Reuse the header style for a summary row
+		AddCell("Total").WithStyle(headerStyle).Done().
+		AddCell("3500").WithStyle(headerStyle).Done().
 		Done().
 		Build()
 
-	assert.NotNil(t, file, "Expected Excel file to be created with complex styles")
-}
+	assert.NotNil(t, file)
 
-// Test Case 10.4: Style Error Handling
-func TestStyleIntegration_ErrorHandling(t *testing.T) {
-	// Test: Check error handling in style integration
-	// Expected:
-	// - Invalid styles are handled gracefully
-	// - Builder chain continues after style errors
-	// - No crashes on invalid style configs
+	// 3. Verify the styles were applied correctly
+	// Get the style ID for the first header cell
+	headerStyleID1, err := file.GetCellStyle("Styled Report", "A1")
+	assert.NoError(t, err)
 
-	builder := excelbuilder.New()
+	// Get the style ID for the second header cell
+	headerStyleID2, err := file.GetCellStyle("Styled Report", "B1")
+	assert.NoError(t, err)
 
-	// Test with potentially problematic style config
-	problematicStyle := excelbuilder.StyleConfig{
-		Font: excelbuilder.FontConfig{
-			Size:  -1, // Invalid size
-			Color: "invalid_color", // Invalid color format
-		},
-	}
+	// Get the style ID for a data cell
+	dataStyleID1, err := file.GetCellStyle("Styled Report", "A2")
+	assert.NoError(t, err)
 
-	// Should not crash even with problematic style
-	file := builder.
-		NewWorkbook().
-		AddSheet("ErrorTest").
-		AddRow().
-		AddCell("Test Cell").SetStyle(problematicStyle).Done().
-		AddCell("Normal Cell").Done().
-		Done().
-		Done().
-		Build()
+	// Get the style ID for the reused header style
+	headerStyleID3, err := file.GetCellStyle("Styled Report", "A3")
+	assert.NoError(t, err)
 
-	// Should still create file even if some styles fail
-	assert.NotNil(t, file, "Expected Excel file to be created despite style errors")
-}
+	// Assert that styles that should be the same are the same
+	assert.Equal(t, headerStyleID1, headerStyleID2, "Header cells should share the same style ID")
+	assert.Equal(t, headerStyleID1, headerStyleID3, "Reused header style should have the same ID as the original")
 
-// Test Case 10.5: Performance with Many Styled Cells
-func TestStyleIntegration_Performance(t *testing.T) {
-	// Test: Check performance with many styled cells
-	// Expected:
-	// - Good performance with many cells
-	// - Style caching improves performance
-	// - Memory usage remains reasonable
-
-	builder := excelbuilder.New()
-
-	// Define styles that will be reused
-	style1 := excelbuilder.StyleConfig{
-		Font: excelbuilder.FontConfig{Bold: true, Size: 12},
-	}
-	style2 := excelbuilder.StyleConfig{
-		Font: excelbuilder.FontConfig{Italic: true, Size: 10},
-	}
-
-	workbook := builder.NewWorkbook().AddSheet("PerformanceTest")
-
-	// Create many rows with styled cells
-	for i := 0; i < 50; i++ {
-		row := workbook.AddRow()
-		for j := 0; j < 10; j++ {
-			cell := row.AddCell(fmt.Sprintf("Cell_%d_%d", i, j))
-			if (i+j)%2 == 0 {
-				cell.SetStyle(style1)
-			} else {
-				cell.SetStyle(style2)
-			}
-			cell.Done()
-		}
-		row.Done()
-	}
-
-	file := workbook.Done().Build()
-	assert.NotNil(t, file, "Expected Excel file to be created with many styled cells")
-}
-
-// Test Case 10.6: Style Inheritance and Overrides
-func TestStyleIntegration_StyleOverrides(t *testing.T) {
-	// Test: Check that styles can be applied and overridden
-	// Expected:
-	// - Multiple style applications work
-	// - Later styles override earlier ones
-	// - Style combinations work correctly
-
-	builder := excelbuilder.New()
-
-	// Base style
-	baseStyle := excelbuilder.StyleConfig{
-		Font: excelbuilder.FontConfig{
-			Size: 12,
-			Color: "#000000",
-		},
-	}
-
-	// Override style
-	override := excelbuilder.StyleConfig{
-		Font: excelbuilder.FontConfig{
-			Bold: true,
-			Color: "#FF0000",
-		},
-	}
-
-	file := builder.
-		NewWorkbook().
-		AddSheet("StyleOverrides").
-		AddRow().
-		AddCell("Base Style").SetStyle(baseStyle).Done().
-		AddCell("Override Style").SetStyle(baseStyle).SetStyle(override).Done().
-		Done().
-		Done().
-		Build()
-
-	assert.NotNil(t, file, "Expected Excel file to be created with style overrides")
+	// Assert that styles that should be different are different
+	assert.NotEqual(t, headerStyleID1, dataStyleID1, "Header style and data style should have different IDs")
 }

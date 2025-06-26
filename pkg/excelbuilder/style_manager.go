@@ -139,50 +139,60 @@ func convertToExcelizeStyle(config StyleConfig) excelize.Style {
 	style := excelize.Style{}
 
 	// Font configuration
-	if config.Font.Size > 0 || config.Font.Bold || config.Font.Italic ||
-		config.Font.Underline || config.Font.Color != "" || config.Font.Family != "" {
+	if config.Font != (FontConfig{}) {
 		font := &excelize.Font{}
+		hasFont := false
 
 		if config.Font.Size > 0 {
 			font.Size = float64(config.Font.Size)
+			hasFont = true
 		}
 		if config.Font.Bold {
 			font.Bold = true
+			hasFont = true
 		}
 		if config.Font.Italic {
 			font.Italic = true
+			hasFont = true
 		}
 		if config.Font.Underline {
 			font.Underline = "single"
+			hasFont = true
 		}
 		if config.Font.Color != "" {
 			font.Color = config.Font.Color
+			hasFont = true
 		}
 		if config.Font.Family != "" {
 			font.Family = config.Font.Family
+			hasFont = true
 		}
 
-		style.Font = font
+		if hasFont {
+			style.Font = font
+		}
 	}
 
 	// Fill configuration
-	if config.Fill.Type != "" || config.Fill.Color != "" {
+	if config.Fill != (FillConfig{}) {
 		fill := &excelize.Fill{}
+		hasFill := false
 
 		if config.Fill.Type == "pattern" && config.Fill.Color != "" {
 			fill.Type = "pattern"
 			fill.Pattern = 1 // Solid fill
 			fill.Color = []string{config.Fill.Color}
+			hasFill = true
 		}
 
-		style.Fill = *fill
+		if hasFill {
+			style.Fill = *fill
+		}
 	}
 
 	// Border configuration
-	if config.Border.Top.Style != "" || config.Border.Bottom.Style != "" ||
-		config.Border.Left.Style != "" || config.Border.Right.Style != "" {
-		border := []excelize.Border{}
-
+	if config.Border != (BorderConfig{}) {
+		var border []excelize.Border
 		if config.Border.Top.Style != "" {
 			border = append(border, excelize.Border{
 				Type:  "top",
@@ -212,21 +222,49 @@ func convertToExcelizeStyle(config StyleConfig) excelize.Style {
 			})
 		}
 
-		style.Border = border
+		if len(border) > 0 {
+			style.Border = border
+		}
 	}
 
 	// Alignment configuration
-	if config.Alignment.Horizontal != "" || config.Alignment.Vertical != "" {
+	if config.Alignment != (AlignmentConfig{}) {
 		alignment := &excelize.Alignment{}
-
+		hasAlignment := false
 		if config.Alignment.Horizontal != "" {
 			alignment.Horizontal = config.Alignment.Horizontal
+			hasAlignment = true
 		}
 		if config.Alignment.Vertical != "" {
 			alignment.Vertical = config.Alignment.Vertical
+			hasAlignment = true
 		}
+		if config.Alignment.WrapText {
+			alignment.WrapText = true
+			hasAlignment = true
+		}
+		if config.Alignment.TextRotation != 0 {
+			alignment.TextRotation = config.Alignment.TextRotation
+			hasAlignment = true
+		}
+		if hasAlignment {
+			style.Alignment = alignment
+		}
+	}
 
-		style.Alignment = alignment
+	// Protection configuration
+	if config.Protection != nil {
+		protection := &excelize.Protection{
+			Hidden: config.Protection.Hidden,
+			Locked: config.Protection.Locked,
+		}
+		style.Protection = protection
+	}
+
+	// NumberFormat configuration
+	if config.NumberFormat != "" {
+		style.NumFmt = 0 // Custom number format requires NumFmt to be set.
+		style.CustomNumFmt = &config.NumberFormat
 	}
 
 	return style

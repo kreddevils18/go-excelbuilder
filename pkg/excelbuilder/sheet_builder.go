@@ -15,6 +15,11 @@ type SheetBuilder struct {
 	currentRow      int
 }
 
+// GetCurrentRow returns the current row number (1-indexed).
+func (sb *SheetBuilder) GetCurrentRow() int {
+	return sb.currentRow
+}
+
 // AddRow creates a new row and returns a RowBuilder
 func (sb *SheetBuilder) AddRow() *RowBuilder {
 	sb.currentRow++
@@ -125,8 +130,8 @@ func (sb *SheetBuilder) SetCell(cellRef string, value interface{}) *CellBuilder 
 	}
 
 	return &CellBuilder{
-		rowBuilder: nil, // This will be nil since we're setting directly by reference
-		cellRef:    cellRef,
+		rowBuilder:   nil, // This will be nil since we're setting directly by reference
+		cellRef:      cellRef,
 		sheetBuilder: sb, // Add reference to sheet builder
 	}
 }
@@ -165,6 +170,50 @@ func (sb *SheetBuilder) MergeCell(cellRange string) *SheetBuilder {
 	if err != nil {
 		return nil
 	}
+	return sb
+}
+
+// FreezePanes provides a way to freeze rows and columns, making them always visible during scrolling.
+//
+// Parameters:
+//   - cols: The number of columns to freeze from the left side of the sheet (e.g., 1 to freeze column A).
+//   - rows: The number of rows to freeze from the top of the sheet (e.g., 1 to freeze row 1).
+//
+// Example:
+//
+//	// Freeze the first column and the top two rows
+//	sheet.FreezePanes(1, 2)
+func (sb *SheetBuilder) FreezePanes(cols, rows int) *SheetBuilder {
+	if cols < 0 || rows < 0 {
+		return sb // Invalid input
+	}
+	if cols == 0 && rows == 0 {
+		return sb // Nothing to freeze
+	}
+
+	// excelize requires the top-left cell of the unfrozen pane to be specified.
+	// For example, to freeze 1 column, the split is after column A, and the first unfrozen cell is B1.
+	// To freeze 1 row, the split is after row 1, and the first unfrozen cell is A2.
+	colName, err := excelize.ColumnNumberToName(cols + 1)
+	if err != nil {
+		fmt.Printf("could not convert column number to name for freeze panes: %v\n", err)
+		return sb
+	}
+	cell := fmt.Sprintf("%s%d", colName, rows+1)
+
+	panes := &excelize.Panes{
+		Freeze:      true,
+		XSplit:      cols,
+		YSplit:      rows,
+		TopLeftCell: cell,
+	}
+
+	if err := sb.workbookBuilder.file.SetPanes(sb.sheetName, panes); err != nil {
+		// In a real library, this error should be handled more gracefully,
+		// perhaps by accumulating errors in the builder.
+		fmt.Printf("could not set freeze panes for sheet %s: %v\n", sb.sheetName, err)
+	}
+
 	return sb
 }
 
@@ -279,7 +328,7 @@ func (sb *SheetBuilder) AddRowsBatchWithStyles(batchData []BatchRowData) *SheetB
 	for _, rowData := range batchData {
 		row := sb.AddRow()
 		for _, cellData := range rowData.Cells {
-			row.AddCell(cellData).SetStyle(rowData.Style)
+			row.AddCell(cellData).WithStyle(rowData.Style)
 		}
 	}
 	return sb

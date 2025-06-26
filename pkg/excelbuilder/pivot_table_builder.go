@@ -19,20 +19,21 @@ func NewPivotTableBuilder(sheetBuilder *SheetBuilder, targetSheet, sourceRange s
 		sheetBuilder: sheetBuilder,
 		file:         sheetBuilder.workbookBuilder.file,
 		config: PivotTableConfig{
+			Name:                  fmt.Sprintf("PivotTable_%s", targetSheet),
 			SourceSheet:           sheetBuilder.sheetName,
 			SourceRange:           sourceRange,
-			TargetSheet:          targetSheet,
-			TargetCell:           "A1",
-			RowFields:            []PivotField{},
-			ColumnFields:         []PivotField{},
-			ValueFields:          []PivotField{},
-			FilterFields:         []PivotField{},
-			Style:                "PivotStyleLight16",
-			ShowRowGrandTotals:   true,
+			TargetSheet:           targetSheet,
+			TargetCell:            "A1",
+			RowFields:             []PivotField{},
+			ColumnFields:          []PivotField{},
+			ValueFields:           []PivotField{},
+			FilterFields:          []PivotField{},
+			Style:                 "PivotStyleLight16",
+			ShowRowGrandTotals:    true,
 			ShowColumnGrandTotals: true,
-			Compact:              true,
-			Outline:              true,
-			Subtotals:            true,
+			Compact:               true,
+			Outline:               true,
+			Subtotals:             true,
 		},
 	}
 }
@@ -96,9 +97,9 @@ func (ptb *PivotTableBuilder) AddFilterField(fieldName string) *PivotTableBuilde
 	return ptb
 }
 
-// SetStyle sets the style of the pivot table
-func (ptb *PivotTableBuilder) SetStyle(style string) *PivotTableBuilder {
-	ptb.config.Style = style
+// WithStyle sets the style of the pivot table from a predefined Excel style name (e.g., "PivotStyleLight16").
+func (ptb *PivotTableBuilder) WithStyle(styleName string) *PivotTableBuilder {
+	ptb.config.Style = styleName
 	return ptb
 }
 
@@ -150,7 +151,7 @@ func (ptb *PivotTableBuilder) Build() error {
 				break
 			}
 		}
-		
+
 		if !sheetExists {
 			_, err := ptb.file.NewSheet(ptb.config.TargetSheet)
 			if err != nil {
@@ -173,21 +174,24 @@ func (ptb *PivotTableBuilder) Build() error {
 
 // buildPivotTableOptions converts the configuration to excelize PivotTableOptions
 func (ptb *PivotTableBuilder) buildPivotTableOptions() excelize.PivotTableOptions {
+	// The PivotTableRange needs to define a bounding box for the pivot table.
+	// We provide a default large range from the target cell for stability.
+	pivotRangeEndCell := "G20" // A reasonable default end cell.
 	options := excelize.PivotTableOptions{
-		DataRange:       fmt.Sprintf("%s!%s", ptb.config.SourceSheet, ptb.config.SourceRange),
-		PivotTableRange: fmt.Sprintf("%s!%s:J20", ptb.config.TargetSheet, ptb.config.TargetCell),
-		Rows:            ptb.buildFieldOptions(ptb.config.RowFields),
-		Columns:         ptb.buildFieldOptions(ptb.config.ColumnFields),
-		Data:            ptb.buildDataFieldOptions(ptb.config.ValueFields),
-		Filter:          ptb.buildFieldOptions(ptb.config.FilterFields),
-		RowGrandTotals:  ptb.config.ShowRowGrandTotals,
-		ColGrandTotals:  ptb.config.ShowColumnGrandTotals,
-		ShowDrill:       true,
-		UseAutoFormatting: true,
-		PageOverThenDown:  true,
-		MergeItem:         true,
-		CompactData:       ptb.config.Compact,
-		ShowError:         true,
+		DataRange:           ptb.config.SourceRange,
+		PivotTableRange:     fmt.Sprintf("%s!%s:%s", ptb.config.TargetSheet, ptb.config.TargetCell, pivotRangeEndCell),
+		Rows:                ptb.buildFieldOptions(ptb.config.RowFields),
+		Columns:             ptb.buildFieldOptions(ptb.config.ColumnFields),
+		Data:                ptb.buildDataFieldOptions(ptb.config.ValueFields),
+		Filter:              ptb.buildFieldOptions(ptb.config.FilterFields),
+		RowGrandTotals:      ptb.config.ShowRowGrandTotals,
+		ColGrandTotals:      ptb.config.ShowColumnGrandTotals,
+		ShowDrill:           true,
+		UseAutoFormatting:   true,
+		PageOverThenDown:    true,
+		MergeItem:           true,
+		CompactData:         ptb.config.Compact,
+		ShowError:           true,
 		PivotTableStyleName: ptb.config.Style,
 	}
 
@@ -219,9 +223,9 @@ func (ptb *PivotTableBuilder) buildDataFieldOptions(fields []PivotField) []excel
 	result := make([]excelize.PivotTableField, len(fields))
 	for i, field := range fields {
 		result[i] = excelize.PivotTableField{
-			Data:         field.Name,
-			Name:         fmt.Sprintf("%s of %s", field.Function, field.Name),
-			Subtotal:     field.Function,
+			Data:     field.Name,
+			Name:     fmt.Sprintf("%s of %s", field.Function, field.Name),
+			Subtotal: field.Function,
 		}
 	}
 	return result

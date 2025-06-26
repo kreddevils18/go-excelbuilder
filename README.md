@@ -1,14 +1,20 @@
 # Go Excel Builder
 
-A fluent, builder-pattern library for creating Excel files in Go, built on top of the excellent [excelize](https://github.com/xuri/excelize) library.
+A fluent, builder-pattern library for creating Excel files in Go, built on top of the excellent [excelize](https://github.com/xuri/excelize) library. This library simplifies Excel creation with a clean, chainable API and optimizes performance for large files using a Flyweight pattern for style management.
 
 ## Features
 
-- **Fluent Builder Pattern**: Chain method calls for intuitive Excel file creation
-- **Type Safety**: Strong typing with compile-time error checking
-- **Memory Efficient**: Optimized for large file generation
-- **Comprehensive Testing**: Full test coverage with TDD approach
-- **Easy to Use**: Simple, readable API
+- **Fluent Builder API**: Chain method calls for an intuitive and readable way to build workbooks, sheets, rows, and cells.
+- **Efficient Style Management**: Uses the Flyweight design pattern to cache and reuse styles, significantly reducing memory consumption and improving performance when generating large, heavily-styled files.
+- **Rich Feature Set**: Comprehensive support for advanced Excel features including:
+  - **Charts**: Create column, bar, line, pie, and scatter charts.
+  - **Pivot Tables**: Generate complex pivot tables from your data.
+  - **Data Validation**: Enforce data integrity with validation rules.
+  - **Advanced Layouts**: Control column/row sizing, merge cells, and freeze panes.
+  - **Professional Styling**: Full control over fonts, fills, borders, alignments, and number formats.
+  - **Import/Export**: Convert data to and from CSV and JSON.
+- **Type-Safe**: Designed to maximize type safety and catch errors at compile time.
+- **Extensively Tested**: Includes a full suite of unit, integration, and performance tests to ensure reliability.
 
 ## Installation
 
@@ -18,137 +24,192 @@ go get github.com/kreddevils18/go-excelbuilder
 
 ## Quick Start
 
+Create a simple styled Excel file in just a few lines of code.
+
 ```go
 package main
 
 import (
-    "fmt"
-    "log"
-    
-    "github.com/kreddevils18/go-excelbuilder/pkg/excelbuilder"
+	"log"
+
+	"github.com/kreddevils18/go-excelbuilder/pkg/excelbuilder"
 )
 
 func main() {
-    // Create a new Excel builder
-    builder := excelbuilder.New()
-    
-    // Create workbook with properties
-    workbook := builder.NewWorkbook()
-    workbook.SetProperties(excelbuilder.WorkbookProperties{
-        Title:       "My Excel File",
-        Author:      "Your Name",
-        Subject:     "Demo",
-        Description: "Created with Go Excel Builder",
-    })
-    
-    // Add a sheet
-    sheet := workbook.AddSheet("Data")
-    
-    // Set column widths
-    sheet.SetColumnWidth("A", 15.0)
-    sheet.SetColumnWidth("B", 20.0)
-    
-    // Add header row
-    headerRow := sheet.AddRow()
-    headerRow.AddCell("Name")
-    headerRow.AddCell("Email")
-    
-    // Add data rows
-    dataRow := sheet.AddRow()
-    dataRow.AddCell("John Doe")
-    dataRow.AddCell("john@example.com")
-    
-    // Build and save
-    file := workbook.Build()
-    err := file.SaveAs("output.xlsx")
-    if err != nil {
-        log.Fatal(err)
-    }
-    
-    fmt.Println("Excel file created successfully!")
+	builder := excelbuilder.New()
+
+	// Define a reusable style
+	headerStyle := excelbuilder.StyleConfig{
+		Font: excelbuilder.FontConfig{Bold: true, Color: "FFFFFF"},
+		Fill: excelbuilder.FillConfig{Type: "pattern", Color: "4472C4"},
+	}
+
+	// Build the workbook
+	file := builder.
+		NewWorkbook().
+		AddSheet("Sales Report").
+		SetColumnWidth("A", 20).
+		AddRow().
+			AddCell("Product").WithStyle(headerStyle).Done().
+			AddCell("Revenue").WithStyle(headerStyle).Done().
+		Done().
+		AddRow().
+			AddCell("Laptop").Done().
+			AddCell(3000).Done().
+		Done().
+		Build()
+
+	// Save the file
+	if err := file.SaveAs("SalesReport.xlsx"); err != nil {
+		log.Fatal(err)
+	}
 }
 ```
 
-## API Reference
+## How to Use Advanced Features
 
-### ExcelBuilder
+### Styling with the Flyweight Pattern
 
-- `New()` - Creates a new ExcelBuilder instance
-- `NewWorkbook()` - Creates a new WorkbookBuilder
+The library's core performance feature is its style management. You define a `StyleConfig` struct and apply it to cells. The `StyleManager` automatically handles caching and reuse in the background.
 
-### WorkbookBuilder
-
-- `SetProperties(props WorkbookProperties)` - Sets workbook metadata
-- `AddSheet(name string)` - Adds a new sheet and returns SheetBuilder
-- `Build()` - Returns the final excelize.File
-
-### SheetBuilder
-
-- `AddRow()` - Adds a new row and returns RowBuilder
-- `SetColumnWidth(column string, width float64)` - Sets column width
-- `MergeCell(cellRange string)` - Merges cells in the specified range
-- `Done()` - Returns to WorkbookBuilder
-
-### RowBuilder
-
-- `AddCell(value interface{})` - Adds a cell and returns CellBuilder
-- `SetRowHeight(height float64)` - Sets row height
-- `Done()` - Returns to SheetBuilder
-
-### CellBuilder
-
-- `SetStyle(style StyleConfig)` - Sets cell style
-- `SetNumberFormat(format string)` - Sets number format
-- `SetFormula(formula string)` - Sets cell formula
-- `SetHyperlink(url, display string)` - Sets hyperlink
-- `Done()` - Returns to RowBuilder
-
-## Configuration Structures
-
-### WorkbookProperties
+**Example:** Create and apply multiple styles.
 
 ```go
-type WorkbookProperties struct {
-    Title       string
-    Author      string
-    Subject     string
-    Description string
-    Category    string
-    Keywords    string
+// Define a style for headers
+headerStyle := excelbuilder.StyleConfig{
+    Font:      excelbuilder.FontConfig{Bold: true, Color: "FFFFFF"},
+    Fill:      excelbuilder.FillConfig{Type: "pattern", Color: "4472C4"},
+    Alignment: excelbuilder.AlignmentConfig{Horizontal: "center"},
 }
+
+// Define a style for currency data
+currencyStyle := excelbuilder.StyleConfig{
+    NumberFormat: `"$#,##0.00"`,
+}
+
+// Apply styles to cells
+sheet.AddRow().
+    AddCell("Item").WithStyle(headerStyle).Done().
+    AddCell("Price").WithStyle(headerStyle).
+Done()
+
+sheet.AddRow().
+    AddCell("Keyboard").Done().
+    AddCell(75.50).WithStyle(currencyStyle).
+Done()
 ```
 
-### StyleConfig
+### Creating Charts
+
+You can add charts to any sheet to visualize your data.
 
 ```go
-type StyleConfig struct {
-    Font      FontConfig
-    Fill      FillConfig
-    Border    BorderConfig
-    Alignment AlignmentConfig
+// ... after adding data to cells A1:B4 ...
+
+// Get the current sheet
+sheet := wb.AddSheet("Chart Demo")
+
+// Add data for the chart
+sheet.AddRow().AddCells("Category", "Value")
+sheet.AddRow().AddCells("A", 100)
+sheet.AddRow().AddCells("B", 150)
+sheet.AddRow().AddCells("C", 80)
+
+// Create the chart
+chart := sheet.AddChart()
+chart.SetType("col") // col, bar, pie, line, etc.
+chart.SetTitle("Sample Column Chart")
+chart.AddDataSeries(excelbuilder.DataSeries{
+    Name:       "'Chart Demo'!$B$1", // Series name from cell
+    Categories: "'Chart Demo'!$A$2:$A$4",
+    Values:     "'Chart Demo'!$B$2:$B$4",
+})
+chart.SetPosition("D1") // Top-left corner of the chart
+chart.Build()
+```
+
+### Advanced Layout
+
+Easily control the layout of your worksheet.
+
+```go
+sheet := wb.AddSheet("Layout Demo")
+
+// Set column widths
+sheet.SetColumnWidth("A", 30) // Set width for a single column
+sheet.SetColumnWidth("B", 15)
+
+// Merge cells
+sheet.AddRow().AddCell("Merged Header").WithMergeRange("C1") // Merges A1:C1
+sheet.AddRow().AddCells("A", "B", "C")
+```
+
+### Data Validation
+
+Enforce data integrity with validation rules, such as requiring a number within a range or selecting from a predefined list.
+
+```go
+// ... in a sheet builder context ...
+
+// Add a header for the column that will have validation
+sheet.AddRow().AddCell("Select a Department:").Done()
+
+// Define the data validation rule for a dropdown list
+validation := excelbuilder.DataValidationConfig{
+    Type:     "list",
+    // The formula for a list must be a string containing comma-separated values, enclosed in quotes.
+    Formula1: []string{`"HR,Engineering,Sales,Marketing"`},
 }
+
+// Add a cell and apply the validation rule to it.
+// The user will now see a dropdown in cell A2.
+sheet.AddRow().AddCell("").WithDataValidation(&validation).Done()
 ```
 
 ## Examples
 
-Check the `examples/` directory for more comprehensive examples:
+This project includes a suite of examples in the `examples/` directory to demonstrate various features. It is recommended to review them in order to understand how to use the library effectively.
 
-- `examples/basic/` - Basic usage
-- `examples/advanced/` - Advanced features with styling
-- `examples/performance/` - Performance optimization examples
+| #   | Example            | Description                                                             |
+| --- | ------------------ | ----------------------------------------------------------------------- |
+| 01  | `simple-workbook`  | The most basic example, showing how to create a file with a few cells.  |
+| 02  | `cell-styling`     | Demonstrates fonts, fills, borders, alignment, and number formats.      |
+| 03  | `layouts`          | Shows how to merge cells, set column widths, and freeze panes.          |
+| 04  | `charts`           | A focused example on creating a column chart.                           |
+| 05  | `data-validation`  | Shows how to create a dropdown list in a cell.                          |
+| 06  | `pivot-tables`     | A dedicated example for building a pivot table from raw data.           |
+| 07  | `financial-report` | An advanced, multi-sheet report showing many features working together. |
+
+To run an example, navigate to the project root and use the `go run` command:
+
+```bash
+go run ./examples/01-simple-workbook/main.go
+```
 
 ## Testing
 
-Run the test suite:
+The project includes a comprehensive test suite.
+
+**Run all unit and integration tests:**
 
 ```bash
-go test ./tests/...
+go test ./tests
 ```
 
-Run tests with verbose output:
+**Run performance benchmarks:**
+
+The benchmarks will demonstrate the efficiency of the style management system.
 
 ```bash
-go test -v ./tests/...
+go test -bench=. -benchmem ./tests
+```
+
+You will see results comparing file generation with no styles, reused styles (the ideal case), and unique styles (the worst case).
+
+```
+Benchmark_LargeFile_NoStyle-10             ...
+Benchmark_LargeFile_WithReusedStyles-10    ...
+Benchmark_LargeFile_WithUniqueStyles-10    ...
 ```
 
 ## Project Structure
@@ -156,11 +217,11 @@ go test -v ./tests/...
 ```
 go-excelbuilder/
 ├── pkg/excelbuilder/     # Core library code
-│   ├── builder.go        # Main builder implementations
-│   └── types.go          # Type definitions
-├── tests/                # Test files
-├── examples/             # Usage examples
-├── docs/                 # Documentation
+├── tests/                # Unit and integration tests
+├── examples/             # Standalone, runnable examples
+│   ├── 01-simple-workbook/
+│   ├── ...
+│   └── 07-financial-report/
 └── README.md
 ```
 
@@ -179,15 +240,6 @@ MIT License - see LICENSE file for details.
 ## Dependencies
 
 - [excelize/v2](https://github.com/xuri/excelize) - Excel file manipulation library
-
-## Roadmap
-
-- [ ] Chart support
-- [ ] Conditional formatting
-- [ ] Data validation
-- [ ] Pivot tables
-- [ ] Template support
-- [ ] Streaming API for very large files
 
 ## Support
 

@@ -43,10 +43,14 @@ func (sf *StyleFlyweight) GetID() int {
 	return sf.id
 }
 
-// Apply applies the style to a given cell.
-func (sf *StyleFlyweight) Apply(f *excelize.File, cellRef string) error {
+// Apply applies the style to a given cell on a specific sheet.
+func (sf *StyleFlyweight) Apply(f *excelize.File, sheetName, cellRef string) error {
 	if f == nil {
 		return errors.New("file cannot be nil")
+	}
+
+	if sheetName == "" {
+		return errors.New("sheet name cannot be empty")
 	}
 
 	if cellRef == "" {
@@ -63,7 +67,7 @@ func (sf *StyleFlyweight) Apply(f *excelize.File, cellRef string) error {
 	if styleID == 0 {
 		// Convert StyleConfig to excelize.Style
 		style := convertToExcelizeStyle(sf.config)
-		
+
 		// Create style in the file
 		newStyleID, err := f.NewStyle(&style)
 		if err != nil {
@@ -75,9 +79,9 @@ func (sf *StyleFlyweight) Apply(f *excelize.File, cellRef string) error {
 	}
 
 	// Apply style to cell
-	err := f.SetCellStyle("Sheet1", cellRef, cellRef, styleID)
+	err := f.SetCellStyle(sheetName, cellRef, cellRef, styleID)
 	if err != nil {
-		return fmt.Errorf("failed to apply style to cell %s: %w", cellRef, err)
+		return fmt.Errorf("failed to apply style to cell %s on sheet %s: %w", cellRef, sheetName, err)
 	}
 
 	return nil

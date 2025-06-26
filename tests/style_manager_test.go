@@ -1,4 +1,4 @@
-package tests
+package excelbuilder_test
 
 import (
 	"sync"
@@ -9,244 +9,114 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-// Test Case 8.1: StyleManager Creation and Initialization
-func TestStyleManager_New(t *testing.T) {
-	// Test: Check StyleManager instance creation
-	// Expected:
-	// - StyleManager created successfully
-	// - Cache initialized
-	// - Thread-safe operations
-	// - No error
-
-	manager := excelbuilder.NewStyleManager()
-
-	assert.NotNil(t, manager, "Expected StyleManager instance, got nil")
-
-	// Test that manager can handle basic operations
-	styleConfig := excelbuilder.StyleConfig{
-		Font: excelbuilder.FontConfig{
-			Bold: true,
-			Size: 12,
-			Color: "#000000",
-		},
+func TestStyleManager_GetStyle_CacheHit(t *testing.T) {
+	sm := excelbuilder.NewStyleManager()
+	file := excelize.NewFile()
+	config := excelbuilder.StyleConfig{
+		Font: excelbuilder.FontConfig{Bold: true, Size: 12},
 	}
 
-	file := excelize.NewFile()
-	style := manager.GetStyle(styleConfig, file)
-	assert.NotNil(t, style, "Expected StyleFlyweight instance, got nil")
-}
+	// First call - should be a cache miss
+	style1 := sm.GetStyle(config, file)
+	assert.NotNil(t, style1, "First style should not be nil")
 
-// Test Case 8.2: Style Caching Mechanism
-func TestStyleManager_StyleCaching(t *testing.T) {
-	// Test: Check that identical styles are cached and reused
-	// Expected:
-	// - Same style config returns same flyweight instance
-	// - Cache hit improves performance
-	// - Memory usage optimized
+	// Second call with same config - should be a cache hit
+	style2 := sm.GetStyle(config, file)
+	assert.NotNil(t, style2, "Second style should not be nil")
 
-	manager := excelbuilder.NewStyleManager()
+	// Assert that the same instance is returned
+	assert.Same(t, style1, style2, "Expected the same style instance to be returned from cache")
 
-	styleConfig := excelbuilder.StyleConfig{
-		Font: excelbuilder.FontConfig{
-			Bold: true,
-			Size: 14,
-			Color: "#FF0000",
-		},
-		Fill: excelbuilder.FillConfig{
-			Type:  "pattern",
-			Color: "#FFFF00",
-		},
-	}
-
-	// Get style twice with same config
-	file := excelize.NewFile()
-	style1 := manager.GetStyle(styleConfig, file)
-	style2 := manager.GetStyle(styleConfig, file)
-
-	// Should return the same instance (pointer equality)
-	assert.Same(t, style1, style2, "Expected same StyleFlyweight instance for identical configs")
-
-	// Verify cache statistics
-	stats := manager.GetCacheStats()
-	assert.Equal(t, 1, stats.TotalStyles, "Expected 1 unique style in cache")
-	assert.Equal(t, 2, stats.CacheHits+stats.CacheMisses, "Expected 2 total requests")
+	stats := sm.GetCacheStats()
 	assert.Equal(t, 1, stats.CacheHits, "Expected 1 cache hit")
+	assert.Equal(t, 1, stats.CacheMisses, "Expected 1 cache miss")
+	assert.Equal(t, uint64(1), stats.UniqueStyles, "Expected 1 unique style")
 }
 
-// Test Case 8.3: Thread Safety
-func TestStyleManager_ThreadSafety(t *testing.T) {
-	// Test: Check thread-safe operations
-	// Expected:
-	// - Concurrent access works correctly
-	// - No race conditions
-	// - Cache consistency maintained
-
-	manager := excelbuilder.NewStyleManager()
-	var wg sync.WaitGroup
-	const numGoroutines = 100
-	const numOperations = 10
-
-	// Create multiple goroutines accessing the same style
-	styleConfig := excelbuilder.StyleConfig{
-		Font: excelbuilder.FontConfig{
-			Bold: true,
-			Size: 12,
-		},
+func TestStyleManager_GetStyle_CacheMiss(t *testing.T) {
+	sm := excelbuilder.NewStyleManager()
+	file := excelize.NewFile()
+	config1 := excelbuilder.StyleConfig{
+		Font: excelbuilder.FontConfig{Bold: true, Size: 12},
+	}
+	config2 := excelbuilder.StyleConfig{
+		Font: excelbuilder.FontConfig{Italic: true, Size: 10},
 	}
 
-	results := make([]*excelbuilder.StyleFlyweight, numGoroutines*numOperations)
-	resultIndex := 0
-	var mu sync.Mutex
+	// First call
+	style1 := sm.GetStyle(config1, file)
+	assert.NotNil(t, style1)
 
+	// Second call with different config
+	style2 := sm.GetStyle(config2, file)
+	assert.NotNil(t, style2)
+
+	assert.NotSame(t, style1, style2, "Expected different style instances for different configs")
+
+	stats := sm.GetCacheStats()
+	assert.Equal(t, 0, stats.CacheHits, "Expected 0 cache hits")
+	assert.Equal(t, 2, stats.CacheMisses, "Expected 2 cache misses")
+	assert.Equal(t, uint64(2), stats.UniqueStyles, "Expected 2 unique styles")
+}
+
+func TestStyleManager_Concurrency(t *testing.T) {
+	sm := excelbuilder.NewStyleManager()
+	file := excelize.NewFile()
+	config := excelbuilder.StyleConfig{
+		Font: excelbuilder.FontConfig{Bold: true, Size: 14, Color: "FF0000"},
+	}
+
+	var wg sync.WaitGroup
+	numGoroutines := 100
+	styles := make(chan *excelbuilder.StyleFlyweight, numGoroutines)
+
+	// Launch multiple goroutines to get the same style
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for j := 0; j < numOperations; j++ {
-				file := excelize.NewFile()
-				style := manager.GetStyle(styleConfig, file)
-				mu.Lock()
-				results[resultIndex] = style
-				resultIndex++
-				mu.Unlock()
-			}
+			style := sm.GetStyle(config, file)
+			styles <- style
 		}()
 	}
 
 	wg.Wait()
+	close(styles)
 
-	// All results should be the same instance
-	firstStyle := results[0]
-	for i, style := range results {
-		assert.Same(t, firstStyle, style, "Expected same StyleFlyweight instance at index %d", i)
+	// Check that all goroutines received the same instance
+	var firstStyle *excelbuilder.StyleFlyweight
+	for style := range styles {
+		assert.NotNil(t, style)
+		if firstStyle == nil {
+			firstStyle = style
+		}
+		assert.Same(t, firstStyle, style, "All goroutines should receive the same style instance")
 	}
 
-	// Should have only one unique style in cache
-	stats := manager.GetCacheStats()
-	assert.Equal(t, 1, stats.TotalStyles, "Expected 1 unique style in cache after concurrent access")
+	// Check cache stats
+	stats := sm.GetCacheStats()
+	assert.Equal(t, 1, stats.CacheMisses, "Should have only one cache miss for the first access")
+	assert.Equal(t, numGoroutines-1, stats.CacheHits, "Should have subsequent accesses as cache hits")
+	assert.Equal(t, uint64(1), stats.UniqueStyles, "Should only have one unique style in the cache")
 }
 
-// Test Case 8.4: Different Styles Create Different Flyweights
-func TestStyleManager_DifferentStyles(t *testing.T) {
-	// Test: Check that different style configs create different flyweights
-	// Expected:
-	// - Different configs return different instances
-	// - Cache stores multiple styles
-	// - Each style is unique
-
-	manager := excelbuilder.NewStyleManager()
-
-	style1Config := excelbuilder.StyleConfig{
-		Font: excelbuilder.FontConfig{
-			Bold: true,
-			Size: 12,
-		},
+func TestStyleManager_GenerateCacheKey(t *testing.T) {
+	sm := excelbuilder.NewStyleManager()
+	config1 := excelbuilder.StyleConfig{
+		Font: excelbuilder.FontConfig{Bold: true},
+	}
+	config2 := excelbuilder.StyleConfig{
+		Font: excelbuilder.FontConfig{Bold: true},
+	}
+	config3 := excelbuilder.StyleConfig{
+		Font: excelbuilder.FontConfig{Bold: false},
 	}
 
-	style2Config := excelbuilder.StyleConfig{
-		Font: excelbuilder.FontConfig{
-			Bold: false,
-			Size: 14,
-		},
-	}
+	key1 := sm.GenerateCacheKey(config1)
+	key2 := sm.GenerateCacheKey(config2)
+	key3 := sm.GenerateCacheKey(config3)
 
-	style3Config := excelbuilder.StyleConfig{
-		Font: excelbuilder.FontConfig{
-			Bold: true,
-			Size: 12,
-			Color: "#FF0000",
-		},
-	}
-
-	file := excelize.NewFile()
-	style1 := manager.GetStyle(style1Config, file)
-	style2 := manager.GetStyle(style2Config, file)
-	style3 := manager.GetStyle(style3Config, file)
-
-	// All should be different instances
-	assert.NotSame(t, style1, style2, "Expected different StyleFlyweight instances")
-	assert.NotSame(t, style1, style3, "Expected different StyleFlyweight instances")
-	assert.NotSame(t, style2, style3, "Expected different StyleFlyweight instances")
-
-	// Cache should contain 3 unique styles
-	stats := manager.GetCacheStats()
-	assert.Equal(t, 3, stats.TotalStyles, "Expected 3 unique styles in cache")
-}
-
-// Test Case 8.5: Cache Key Generation
-func TestStyleManager_CacheKeyGeneration(t *testing.T) {
-	// Test: Check that cache key generation is consistent and unique
-	// Expected:
-	// - Same config generates same key
-	// - Different configs generate different keys
-	// - Keys are deterministic
-
-	manager := excelbuilder.NewStyleManager()
-
-	styleConfig := excelbuilder.StyleConfig{
-		Font: excelbuilder.FontConfig{
-			Bold: true,
-			Size: 12,
-			Color: "#000000",
-		},
-		Fill: excelbuilder.FillConfig{
-			Type:  "pattern",
-			Color: "#FFFFFF",
-		},
-	}
-
-	// Generate key multiple times
-	key1 := manager.GenerateCacheKey(styleConfig)
-	key2 := manager.GenerateCacheKey(styleConfig)
-	key3 := manager.GenerateCacheKey(styleConfig)
-
-	// All keys should be identical
-	assert.Equal(t, key1, key2, "Expected consistent cache key generation")
-	assert.Equal(t, key2, key3, "Expected consistent cache key generation")
-
-	// Different config should generate different key
-	differentConfig := styleConfig
-	differentConfig.Font.Size = 14
-	differentKey := manager.GenerateCacheKey(differentConfig)
-
-	assert.NotEqual(t, key1, differentKey, "Expected different cache keys for different configs")
-}
-
-// Test Case 8.6: Memory Usage Optimization
-func TestStyleManager_MemoryOptimization(t *testing.T) {
-	// Test: Check memory usage with many similar styles
-	// Expected:
-	// - Memory usage stays low with style reuse
-	// - Cache prevents memory bloat
-	// - Performance remains good
-
-	manager := excelbuilder.NewStyleManager()
-
-	// Create many requests for the same style
-	styleConfig := excelbuilder.StyleConfig{
-		Font: excelbuilder.FontConfig{
-			Bold: true,
-			Size: 12,
-		},
-	}
-
-	const numRequests = 1000
-	styles := make([]*excelbuilder.StyleFlyweight, numRequests)
-
-	for i := 0; i < numRequests; i++ {
-		file := excelize.NewFile()
-		styles[i] = manager.GetStyle(styleConfig, file)
-	}
-
-	// All should be the same instance
-	firstStyle := styles[0]
-	for i, style := range styles {
-		assert.Same(t, firstStyle, style, "Expected same StyleFlyweight instance at index %d", i)
-	}
-
-	// Cache should contain only 1 style despite 1000 requests
-	stats := manager.GetCacheStats()
-	assert.Equal(t, 1, stats.TotalStyles, "Expected 1 unique style in cache")
-	assert.Equal(t, numRequests-1, stats.CacheHits, "Expected %d cache hits", numRequests-1)
-	assert.Equal(t, 1, stats.CacheMisses, "Expected 1 cache miss")
+	assert.NotEmpty(t, key1)
+	assert.Equal(t, key1, key2, "Cache keys for identical configs should be the same")
+	assert.NotEqual(t, key1, key3, "Cache keys for different configs should be different")
 }

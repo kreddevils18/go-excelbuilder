@@ -104,6 +104,17 @@ type DataSeries struct {
 	Color      string
 }
 
+// ChartFormat defines the format properties for a chart, like dimensions and offsets.
+type ChartFormat struct {
+	XScale    float64
+	YScale    float64
+	XOffset   float64
+	YOffset   float64
+	PrintObj  bool
+	LockRatio bool
+	Locked    bool
+}
+
 // ColorScale defines color scale configuration for conditional formatting
 type ColorScale struct {
 	MinColor string

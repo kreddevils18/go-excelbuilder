@@ -1,6 +1,8 @@
 module github.com/kreddevils18/go-excelbuilder
 
-go 1.23.8
+go 1.23.0
+
+toolchain go1.23.8
 
 require (
 	github.com/stretchr/testify v1.10.0

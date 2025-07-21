@@ -13,6 +13,7 @@ type SheetBuilder struct {
 	workbookBuilder *WorkbookBuilder
 	sheetName       string
 	currentRow      int
+	hasError        bool
 }
 
 // GetCurrentRow returns the current row number (1-indexed).
@@ -27,6 +28,7 @@ func (sb *SheetBuilder) AddRow() *RowBuilder {
 		sheetBuilder: sb,
 		rowIndex:     sb.currentRow,
 		currentCol:   0,
+		hasError:     false,
 	}
 }
 
@@ -45,23 +47,30 @@ func (sb *SheetBuilder) AddRows(data [][]interface{}) *SheetBuilder {
 func (sb *SheetBuilder) SetColumnWidth(col string, width float64) *SheetBuilder {
 	// Validate column name
 	if col == "" {
-		return nil
+		sb.workbookBuilder.excelBuilder.AddError(fmt.Errorf("column name cannot be empty"))
+		sb.hasError = true
+		return sb
 	}
 
 	// Validate width (negative or extremely large values)
 	if width < 0 || width > 255 {
-		return nil
+		sb.workbookBuilder.excelBuilder.AddError(fmt.Errorf("column width must be between 0 and 255, got %f", width))
+		sb.hasError = true
+		return sb
 	}
 
 	// Validate column format (should be A-Z, AA-ZZ, etc., not contain numbers)
 	if !isValidColumnName(col) {
-		return nil
+		sb.workbookBuilder.excelBuilder.AddError(fmt.Errorf("invalid column name '%s'", col))
+		sb.hasError = true
+		return sb
 	}
 
 	err := sb.workbookBuilder.file.SetColWidth(sb.sheetName, col, col, width)
 	if err != nil {
-		// Return nil for any errors during setting column width
-		return nil
+		sb.workbookBuilder.excelBuilder.AddError(fmt.Errorf("failed to set column width for column '%s': %w", col, err))
+		sb.hasError = true
+		return sb
 	}
 
 	return sb
@@ -121,18 +130,31 @@ func (sb *SheetBuilder) AutoSizeColumns() *SheetBuilder {
 func (sb *SheetBuilder) SetCell(cellRef string, value interface{}) *CellBuilder {
 	// Validate input
 	if cellRef == "" {
-		return nil
+		sb.workbookBuilder.excelBuilder.AddError(fmt.Errorf("cell reference cannot be empty"))
+		return &CellBuilder{
+			rowBuilder:   nil,
+			cellRef:      "A1", // fallback
+			sheetBuilder: sb,
+			hasError:     true,
+		}
 	}
 
 	err := sb.workbookBuilder.file.SetCellValue(sb.sheetName, cellRef, value)
 	if err != nil {
-		return nil
+		sb.workbookBuilder.excelBuilder.AddError(fmt.Errorf("failed to set cell value at %s: %w", cellRef, err))
+		return &CellBuilder{
+			rowBuilder:   nil,
+			cellRef:      cellRef,
+			sheetBuilder: sb,
+			hasError:     true,
+		}
 	}
 
 	return &CellBuilder{
 		rowBuilder:   nil, // This will be nil since we're setting directly by reference
 		cellRef:      cellRef,
 		sheetBuilder: sb, // Add reference to sheet builder
+		hasError:     false,
 	}
 }
 
@@ -145,14 +167,18 @@ func (sb *SheetBuilder) MergeRange(cellRange string) *SheetBuilder {
 func (sb *SheetBuilder) MergeCell(cellRange string) *SheetBuilder {
 	// Validate input
 	if cellRange == "" {
-		return nil
+		sb.workbookBuilder.excelBuilder.AddError(fmt.Errorf("cell range cannot be empty"))
+		sb.hasError = true
+		return sb
 	}
 
 	// Parse the range to get start and end cells
 	// For simplicity, assume cellRange is in format "A1:C1"
 	parts := strings.Split(cellRange, ":")
 	if len(parts) != 2 {
-		return nil
+		sb.workbookBuilder.excelBuilder.AddError(fmt.Errorf("invalid cell range format '%s', expected format 'A1:C1'", cellRange))
+		sb.hasError = true
+		return sb
 	}
 
 	// Validate that start and end cells are different
@@ -163,12 +189,16 @@ func (sb *SheetBuilder) MergeCell(cellRange string) *SheetBuilder {
 
 	// Check for reverse range (e.g., "D1:A1")
 	if isReverseRange(parts[0], parts[1]) {
-		return nil
+		sb.workbookBuilder.excelBuilder.AddError(fmt.Errorf("invalid cell range '%s', start cell must come before end cell", cellRange))
+		sb.hasError = true
+		return sb
 	}
 
 	err := sb.workbookBuilder.file.MergeCell(sb.sheetName, parts[0], parts[1])
 	if err != nil {
-		return nil
+		sb.workbookBuilder.excelBuilder.AddError(fmt.Errorf("failed to merge cells %s: %w", cellRange, err))
+		sb.hasError = true
+		return sb
 	}
 	return sb
 }
@@ -196,7 +226,8 @@ func (sb *SheetBuilder) FreezePanes(cols, rows int) *SheetBuilder {
 	// To freeze 1 row, the split is after row 1, and the first unfrozen cell is A2.
 	colName, err := excelize.ColumnNumberToName(cols + 1)
 	if err != nil {
-		fmt.Printf("could not convert column number to name for freeze panes: %v\n", err)
+		sb.workbookBuilder.excelBuilder.AddError(fmt.Errorf("could not convert column number to name for freeze panes: %w", err))
+		sb.hasError = true
 		return sb
 	}
 	cell := fmt.Sprintf("%s%d", colName, rows+1)
@@ -209,9 +240,8 @@ func (sb *SheetBuilder) FreezePanes(cols, rows int) *SheetBuilder {
 	}
 
 	if err := sb.workbookBuilder.file.SetPanes(sb.sheetName, panes); err != nil {
-		// In a real library, this error should be handled more gracefully,
-		// perhaps by accumulating errors in the builder.
-		fmt.Printf("could not set freeze panes for sheet %s: %v\n", sb.sheetName, err)
+		sb.workbookBuilder.excelBuilder.AddError(fmt.Errorf("could not set freeze panes for sheet %s: %w", sb.sheetName, err))
+		sb.hasError = true
 	}
 
 	return sb
@@ -348,11 +378,15 @@ func (sb *SheetBuilder) ApplyStyleBatch(operations []BatchStyleOperation) *Sheet
 // SetRowHeight sets the height for a specific row.
 func (sb *SheetBuilder) SetRowHeight(row int, height float64) *SheetBuilder {
 	if row <= 0 || height <= 0 || height > 409 {
-		return nil // Invalid input
+		sb.workbookBuilder.excelBuilder.AddError(fmt.Errorf("invalid row height parameters: row=%d, height=%f (row must be > 0, height must be between 0 and 409)", row, height))
+		sb.hasError = true
+		return sb
 	}
 	err := sb.workbookBuilder.file.SetRowHeight(sb.sheetName, row, height)
 	if err != nil {
-		return nil
+		sb.workbookBuilder.excelBuilder.AddError(fmt.Errorf("failed to set row height for row %d: %w", row, err))
+		sb.hasError = true
+		return sb
 	}
 	return sb
 }

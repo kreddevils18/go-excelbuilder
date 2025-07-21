@@ -1,6 +1,8 @@
 package excelbuilder
 
 import (
+	"fmt"
+
 	"github.com/xuri/excelize/v2"
 )
 
@@ -9,6 +11,7 @@ type CellBuilder struct {
 	rowBuilder   *RowBuilder
 	sheetBuilder *SheetBuilder
 	cellRef      string
+	hasError     bool
 }
 
 // WithValue sets the value of the cell.
@@ -19,7 +22,9 @@ func (cb *CellBuilder) WithValue(value interface{}) *CellBuilder {
 		value,
 	)
 	if err != nil {
-		return nil
+		cb.sheetBuilder.workbookBuilder.excelBuilder.AddError(fmt.Errorf("failed to set cell value at %s: %w", cb.cellRef, err))
+		cb.hasError = true
+		return cb
 	}
 	return cb
 }
@@ -36,7 +41,9 @@ func (cb *CellBuilder) WithStyle(config StyleConfig) *CellBuilder {
 		cb.cellRef,
 	)
 	if err != nil {
-		return nil
+		cb.sheetBuilder.workbookBuilder.excelBuilder.AddError(fmt.Errorf("failed to apply style to cell %s: %w", cb.cellRef, err))
+		cb.hasError = true
+		return cb
 	}
 
 	return cb
@@ -87,7 +94,9 @@ func (cb *CellBuilder) WithDataValidation(dvc *DataValidationConfig) *CellBuilde
 
 	err := cb.sheetBuilder.workbookBuilder.file.AddDataValidation(cb.sheetBuilder.sheetName, dv)
 	if err != nil {
-		return nil
+		cb.sheetBuilder.workbookBuilder.excelBuilder.AddError(fmt.Errorf("failed to add data validation to cell %s: %w", cb.cellRef, err))
+		cb.hasError = true
+		return cb
 	}
 	return cb
 }
@@ -104,7 +113,9 @@ func (cb *CellBuilder) WithNumberFormat(format string) *CellBuilder {
 
 	styleID, err := cb.sheetBuilder.workbookBuilder.file.NewStyle(style)
 	if err != nil {
-		return nil
+		cb.sheetBuilder.workbookBuilder.excelBuilder.AddError(fmt.Errorf("failed to create style for cell %s: %w", cb.cellRef, err))
+		cb.hasError = true
+		return cb
 	}
 
 	err = cb.sheetBuilder.workbookBuilder.file.SetCellStyle(
@@ -114,7 +125,9 @@ func (cb *CellBuilder) WithNumberFormat(format string) *CellBuilder {
 		styleID,
 	)
 	if err != nil {
-		return nil
+		cb.sheetBuilder.workbookBuilder.excelBuilder.AddError(fmt.Errorf("failed to set cell style for cell %s: %w", cb.cellRef, err))
+		cb.hasError = true
+		return cb
 	}
 
 	return cb
@@ -128,7 +141,9 @@ func (cb *CellBuilder) WithFormula(formula string) *CellBuilder {
 		formula,
 	)
 	if err != nil {
-		return nil
+		cb.sheetBuilder.workbookBuilder.excelBuilder.AddError(fmt.Errorf("failed to set formula for cell %s: %w", cb.cellRef, err))
+		cb.hasError = true
+		return cb
 	}
 	return cb
 }
@@ -146,7 +161,9 @@ func (cb *CellBuilder) WithHyperlink(url string) *CellBuilder {
 		"External",
 	)
 	if err != nil {
-		return nil
+		cb.sheetBuilder.workbookBuilder.excelBuilder.AddError(fmt.Errorf("failed to set hyperlink for cell %s: %w", cb.cellRef, err))
+		cb.hasError = true
+		return cb
 	}
 	return cb
 }
@@ -156,7 +173,9 @@ func (cb *CellBuilder) WithHyperlink(url string) *CellBuilder {
 func (cb *CellBuilder) WithMergeRange(endCellRef string) *CellBuilder {
 	err := cb.sheetBuilder.workbookBuilder.file.MergeCell(cb.sheetBuilder.sheetName, cb.cellRef, endCellRef)
 	if err != nil {
-		return nil
+		cb.sheetBuilder.workbookBuilder.excelBuilder.AddError(fmt.Errorf("failed to merge cells %s to %s: %w", cb.cellRef, endCellRef, err))
+		cb.hasError = true
+		return cb
 	}
 	return cb
 }

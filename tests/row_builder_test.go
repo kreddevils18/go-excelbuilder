@@ -8,13 +8,10 @@ import (
 )
 
 func TestRowBuilder_SetHeight_Validation(t *testing.T) {
-	rowBuilder := excelbuilder.New().NewWorkbook().AddSheet("Sheet1").AddRow()
-	assert.NotNil(t, rowBuilder)
-
 	testCases := []struct {
 		name        string
 		height      float64
-		shouldBeNil bool
+		shouldError bool
 		message     string
 	}{
 		{"Valid Height", 50.0, false, "Should allow valid row height"},
@@ -26,12 +23,21 @@ func TestRowBuilder_SetHeight_Validation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			builder := excelbuilder.New().WithErrorCollection(true)
+			rowBuilder := builder.NewWorkbook().AddSheet("Sheet1").AddRow()
+			
 			result := rowBuilder.SetHeight(tc.height)
-			if tc.shouldBeNil {
-				assert.Nil(t, result, tc.message)
+			
+			// Should never return nil - that was the dangerous behavior we fixed
+			assert.NotNil(t, result, "Builder should never return nil")
+			assert.Same(t, rowBuilder, result, "Should return the same builder instance")
+			
+			if tc.shouldError {
+				assert.True(t, builder.HasErrors(), tc.message)
+				errors := builder.GetCollectedErrors()
+				assert.Greater(t, len(errors), 0, "Should have collected errors for invalid input")
 			} else {
-				assert.NotNil(t, result, tc.message)
-				assert.Same(t, rowBuilder, result, "Should return the same builder instance on success")
+				assert.False(t, builder.HasErrors(), tc.message)
 			}
 		})
 	}

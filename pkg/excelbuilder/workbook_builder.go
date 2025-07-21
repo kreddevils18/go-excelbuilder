@@ -1,6 +1,7 @@
 package excelbuilder
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/xuri/excelize/v2"
@@ -31,34 +32,65 @@ func (wb *WorkbookBuilder) SetProperties(props WorkbookProperties) *WorkbookBuil
 // AddSheet creates a new sheet and returns a SheetBuilder
 func (wb *WorkbookBuilder) AddSheet(name string) *SheetBuilder {
 	if name == "" {
-		return nil
+		wb.excelBuilder.AddError(fmt.Errorf("sheet name cannot be empty"))
+		// Return a placeholder SheetBuilder to avoid nil
+		return &SheetBuilder{
+			workbookBuilder: wb,
+			sheetName:       "Sheet1", // fallback name
+			currentRow:      0,
+			hasError:        true,
+		}
 	}
 
 	// Check for invalid characters
 	invalidChars := []string{"[", "]", "*", "?", "/", "\\"}
 	for _, char := range invalidChars {
 		if strings.Contains(name, char) {
-			return nil
+			wb.excelBuilder.AddError(fmt.Errorf("sheet name '%s' contains invalid character '%s'", name, char))
+			return &SheetBuilder{
+				workbookBuilder: wb,
+				sheetName:       "Sheet1", // fallback name
+				currentRow:      0,
+				hasError:        true,
+			}
 		}
 	}
 
 	// Check length (Excel limit is 31 characters)
 	if len(name) > 31 {
-		return nil
+		wb.excelBuilder.AddError(fmt.Errorf("sheet name '%s' exceeds 31 character limit", name))
+		return &SheetBuilder{
+			workbookBuilder: wb,
+			sheetName:       "Sheet1", // fallback name
+			currentRow:      0,
+			hasError:        true,
+		}
 	}
 
 	// Check for reserved names
 	reservedNames := []string{"History", "Print_Area", "Print_Titles"}
 	for _, reserved := range reservedNames {
 		if name == reserved {
-			return nil
+			wb.excelBuilder.AddError(fmt.Errorf("sheet name '%s' is reserved", name))
+			return &SheetBuilder{
+				workbookBuilder: wb,
+				sheetName:       "Sheet1", // fallback name
+				currentRow:      0,
+				hasError:        true,
+			}
 		}
 	}
 
 	// Create the sheet
 	index, err := wb.file.NewSheet(name)
 	if err != nil {
-		return nil
+		wb.excelBuilder.AddError(fmt.Errorf("failed to create sheet '%s': %w", name, err))
+		return &SheetBuilder{
+			workbookBuilder: wb,
+			sheetName:       "Sheet1", // fallback name
+			currentRow:      0,
+			hasError:        true,
+		}
 	}
 
 	// Set as active sheet
@@ -68,6 +100,7 @@ func (wb *WorkbookBuilder) AddSheet(name string) *SheetBuilder {
 		workbookBuilder: wb,
 		sheetName:       name,
 		currentRow:      0,
+		hasError:        false,
 	}
 }
 

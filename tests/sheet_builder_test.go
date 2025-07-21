@@ -8,13 +8,10 @@ import (
 )
 
 func TestSheetBuilder_AddSheet_Validation(t *testing.T) {
-	builder := excelbuilder.New()
-	wb := builder.NewWorkbook()
-
 	testCases := []struct {
 		name        string
 		sheetName   string
-		shouldBeNil bool
+		shouldError bool
 		message     string
 	}{
 		{"Valid Name", "Report", false, "Should allow valid sheet name"},
@@ -31,29 +28,34 @@ func TestSheetBuilder_AddSheet_Validation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			builder := excelbuilder.New().WithErrorCollection(true)
+			wb := builder.NewWorkbook()
 			sheetBuilder := wb.AddSheet(tc.sheetName)
-			if tc.shouldBeNil {
-				assert.Nil(t, sheetBuilder, tc.message)
+			
+			// Should never return nil - that was the dangerous behavior we fixed
+			assert.NotNil(t, sheetBuilder, "Builder should never return nil")
+			
+			if tc.shouldError {
+				assert.True(t, builder.HasErrors(), tc.message)
+				errors := builder.GetCollectedErrors()
+				assert.Greater(t, len(errors), 0, "Should have collected errors for invalid input")
 			} else {
-				assert.NotNil(t, sheetBuilder, tc.message)
+				assert.False(t, builder.HasErrors(), tc.message)
 			}
 		})
 	}
 }
 
 func TestSheetBuilder_SetColumnWidth_Validation(t *testing.T) {
-	sheetBuilder := excelbuilder.New().NewWorkbook().AddSheet("Sheet1")
-	assert.NotNil(t, sheetBuilder)
-
 	testCases := []struct {
 		name        string
 		col         string
 		width       float64
-		shouldBeNil bool
+		shouldError bool
 		message     string
 	}{
 		{"Valid Width", "A", 15.0, false, "Should allow valid column width"},
-		{"Zero Width", "B", 0, false, "Should allow zero width to hide column"},
+		{"Zero Width", "B", 0, false, "Should allow zero width to hide column"}, // Zero is valid (hides column)
 		{"Negative Width", "C", -10.0, true, "Should not allow negative column width"},
 		{"Too Large Width", "D", 300.0, true, "Should not allow width > 255"},
 		{"Invalid Column Name", "1A", 15.0, true, "Should not allow invalid column name"},
@@ -62,25 +64,31 @@ func TestSheetBuilder_SetColumnWidth_Validation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			builder := excelbuilder.New().WithErrorCollection(true)
+			sheetBuilder := builder.NewWorkbook().AddSheet("Sheet1")
+			
 			result := sheetBuilder.SetColumnWidth(tc.col, tc.width)
-			if tc.shouldBeNil {
-				assert.Nil(t, result, tc.message)
+			
+			// Should never return nil - that was the dangerous behavior we fixed
+			assert.NotNil(t, result, "Builder should never return nil")
+			assert.Same(t, sheetBuilder, result, "Should return the same builder instance")
+			
+			if tc.shouldError {
+				assert.True(t, builder.HasErrors(), tc.message)
+				errors := builder.GetCollectedErrors()
+				assert.Greater(t, len(errors), 0, "Should have collected errors for invalid input")
 			} else {
-				assert.NotNil(t, result, tc.message)
-				assert.Same(t, sheetBuilder, result, "Should return the same builder instance on success")
+				assert.False(t, builder.HasErrors(), tc.message)
 			}
 		})
 	}
 }
 
 func TestSheetBuilder_MergeCell_Validation(t *testing.T) {
-	sheetBuilder := excelbuilder.New().NewWorkbook().AddSheet("Sheet1")
-	assert.NotNil(t, sheetBuilder)
-
 	testCases := []struct {
 		name        string
 		cellRange   string
-		shouldBeNil bool
+		shouldError bool
 		message     string
 	}{
 		{"Valid Merge", "A1:C1", false, "Should allow valid merge range"},
@@ -92,12 +100,21 @@ func TestSheetBuilder_MergeCell_Validation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			builder := excelbuilder.New().WithErrorCollection(true)
+			sheetBuilder := builder.NewWorkbook().AddSheet("Sheet1")
+			
 			result := sheetBuilder.MergeCell(tc.cellRange)
-			if tc.shouldBeNil {
-				assert.Nil(t, result, tc.message)
+			
+			// Should never return nil - that was the dangerous behavior we fixed
+			assert.NotNil(t, result, "Builder should never return nil")
+			assert.Same(t, sheetBuilder, result, "Should return the same builder instance")
+			
+			if tc.shouldError {
+				assert.True(t, builder.HasErrors(), tc.message)
+				errors := builder.GetCollectedErrors()
+				assert.Greater(t, len(errors), 0, "Should have collected errors for invalid input")
 			} else {
-				assert.NotNil(t, result, tc.message)
-				assert.Same(t, sheetBuilder, result, "Should return the same builder instance on success")
+				assert.False(t, builder.HasErrors(), tc.message)
 			}
 		})
 	}

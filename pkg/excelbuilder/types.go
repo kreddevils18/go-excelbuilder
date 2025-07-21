@@ -166,23 +166,6 @@ type ConditionalFormattingConfig struct {
 	Rules []ConditionalRule
 }
 
-// DataValidation defines data validation rules for cells
-type DataValidation struct {
-	Type             string // "whole", "decimal", "list", "date", "time", "textLength", "custom"
-	Operator         string // "between", "notBetween", "equal", "notEqual", "greaterThan", "lessThan", "greaterThanOrEqual", "lessThanOrEqual"
-	Formula1         string
-	Formula2         string
-	AllowBlank       bool
-	ShowDropDown     bool
-	ShowInputMessage bool
-	ShowErrorMessage bool
-	ErrorTitle       string
-	ErrorMessage     string
-	ErrorStyle       string // "stop", "warning", "information"
-	PromptTitle      string
-	PromptMessage    string
-}
-
 // DataValidationConfig defines data validation rules
 type DataValidationConfig struct {
 	Type             string // "whole", "decimal", "list", "date", "time", "textLength", "custom"

@@ -1,9 +1,9 @@
 package excelbuilder
 
 import (
-	"crypto/md5"
-	"encoding/json"
+	"crypto/sha256"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/xuri/excelize/v2"
@@ -12,9 +12,12 @@ import (
 // StyleManager manages style flyweights using the Flyweight pattern
 // It provides thread-safe caching and reuse of style objects
 type StyleManager struct {
-	cache map[string]*StyleFlyweight
-	mutex sync.RWMutex
-	stats CacheStats
+	cache     map[string]*StyleFlyweight
+	access    map[string]int64 // Track access time for LRU eviction
+	mutex     sync.RWMutex
+	stats     CacheStats
+	maxSize   int   // Maximum cache size (0 = unlimited)
+	counter   int64 // Access counter for LRU
 }
 
 // CacheStats provides statistics about the style cache
@@ -42,9 +45,29 @@ func (cs CacheStats) TotalRequests() int {
 // NewStyleManager creates a new StyleManager instance
 func NewStyleManager() *StyleManager {
 	return &StyleManager{
-		cache: make(map[string]*StyleFlyweight),
-		stats: CacheStats{},
+		cache:   make(map[string]*StyleFlyweight),
+		access:  make(map[string]int64),
+		stats:   CacheStats{},
+		maxSize: 1000, // Default cache size limit
+		counter: 0,
 	}
+}
+
+// SetMaxCacheSize sets the maximum cache size (0 = unlimited)
+func (sm *StyleManager) SetMaxCacheSize(maxSize int) {
+	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
+	sm.maxSize = maxSize
+	if maxSize > 0 && len(sm.cache) > maxSize {
+		sm.evictLRU(len(sm.cache) - maxSize)
+	}
+}
+
+// GetMaxCacheSize returns the current maximum cache size
+func (sm *StyleManager) GetMaxCacheSize() int {
+	sm.mutex.RLock()
+	defer sm.mutex.RUnlock()
+	return sm.maxSize
 }
 
 // GetStyle returns a StyleFlyweight for the given configuration
@@ -52,27 +75,13 @@ func NewStyleManager() *StyleManager {
 func (sm *StyleManager) GetStyle(config StyleConfig, file *excelize.File) *StyleFlyweight {
 	cacheKey := sm.GenerateCacheKey(config)
 
-	// Try to get from cache with read lock
-	sm.mutex.RLock()
-	if flyweight, exists := sm.cache[cacheKey]; exists {
-		sm.mutex.RUnlock()
-
-		// Update stats with write lock
-		sm.mutex.Lock()
-		sm.stats.CacheHits++
-		sm.mutex.Unlock()
-
-		return flyweight
-	}
-	sm.mutex.RUnlock()
-
-	// Create new flyweight with write lock
+	// Try to get from cache with write lock for atomic operations
 	sm.mutex.Lock()
-	defer sm.mutex.Unlock()
-
-	// Double-check pattern - another goroutine might have created it
 	if flyweight, exists := sm.cache[cacheKey]; exists {
 		sm.stats.CacheHits++
+		sm.counter++
+		sm.access[cacheKey] = sm.counter // Update access time
+		sm.mutex.Unlock()
 		return flyweight
 	}
 
@@ -80,29 +89,188 @@ func (sm *StyleManager) GetStyle(config StyleConfig, file *excelize.File) *Style
 	style := convertToExcelizeStyle(config)
 	styleID, err := file.NewStyle(&style)
 	if err != nil {
+		sm.mutex.Unlock()
 		// Handle error, maybe return a default style or an error
 		return nil
 	}
 
 	flyweight := NewStyleFlyweight(config, styleID)
+	
+	// Check if we need to evict before adding new entry
+	if sm.maxSize > 0 && len(sm.cache) >= sm.maxSize {
+		sm.evictLRU(1)
+	}
+	
 	sm.cache[cacheKey] = flyweight
+	sm.counter++
+	sm.access[cacheKey] = sm.counter
 	sm.stats.CacheMisses++
 	sm.stats.TotalStyles++
+	sm.mutex.Unlock()
 
 	return flyweight
 }
 
-// GenerateCacheKey generates a unique cache key for a style configuration
-func (sm *StyleManager) GenerateCacheKey(config StyleConfig) string {
-	// Serialize config to JSON for consistent key generation
-	jsonData, err := json.Marshal(config)
-	if err != nil {
-		// Fallback to string representation if JSON fails
-		return fmt.Sprintf("%+v", config)
+// evictLRU removes the least recently used entries from the cache
+// Must be called with mutex already held
+func (sm *StyleManager) evictLRU(count int) {
+	if count <= 0 || len(sm.cache) == 0 {
+		return
 	}
+	
+	// Find the least recently used entries
+	type cacheEntry struct {
+		key        string
+		accessTime int64
+	}
+	
+	entries := make([]cacheEntry, 0, len(sm.access))
+	for key, accessTime := range sm.access {
+		entries = append(entries, cacheEntry{key: key, accessTime: accessTime})
+	}
+	
+	// Sort by access time (ascending - oldest first)
+	for i := 0; i < len(entries)-1; i++ {
+		for j := i + 1; j < len(entries); j++ {
+			if entries[i].accessTime > entries[j].accessTime {
+				entries[i], entries[j] = entries[j], entries[i]
+			}
+		}
+	}
+	
+	// Remove the oldest entries
+	evicted := 0
+	for i := 0; i < len(entries) && evicted < count; i++ {
+		key := entries[i].key
+		if _, exists := sm.cache[key]; exists {
+			delete(sm.cache, key)
+			delete(sm.access, key)
+			evicted++
+		}
+	}
+}
 
-	// Generate MD5 hash for compact, consistent key
-	hash := md5.Sum(jsonData)
+// GenerateCacheKey generates a unique cache key for a style configuration
+// Optimized version that avoids JSON marshaling for better performance
+func (sm *StyleManager) GenerateCacheKey(config StyleConfig) string {
+	var builder strings.Builder
+	builder.Grow(256) // Pre-allocate some capacity for performance
+	
+	// Font configuration
+	if config.Font != (FontConfig{}) {
+		builder.WriteString("f:")
+		if config.Font.Size > 0 {
+			builder.WriteString(fmt.Sprintf("sz%d,", config.Font.Size))
+		}
+		if config.Font.Bold {
+			builder.WriteString("b,")
+		}
+		if config.Font.Italic {
+			builder.WriteString("i,")
+		}
+		if config.Font.Underline {
+			builder.WriteString("u,")
+		}
+		if config.Font.Color != "" {
+			builder.WriteString("c")
+			builder.WriteString(config.Font.Color)
+			builder.WriteString(",")
+		}
+		if config.Font.Family != "" {
+			builder.WriteString("fm")
+			builder.WriteString(config.Font.Family)
+			builder.WriteString(",")
+		}
+		builder.WriteString(";")
+	}
+	
+	// Fill configuration
+	if config.Fill != (FillConfig{}) {
+		builder.WriteString("fl:")
+		builder.WriteString(config.Fill.Type)
+		builder.WriteString(",")
+		builder.WriteString(config.Fill.Color)
+		builder.WriteString(";")
+	}
+	
+	// Border configuration
+	if config.Border != (BorderConfig{}) {
+		builder.WriteString("b:")
+		if config.Border.Color != "" {
+			builder.WriteString("c")
+			builder.WriteString(config.Border.Color)
+			builder.WriteString(",")
+		}
+		if config.Border.Top.Style != "" {
+			builder.WriteString("t")
+			builder.WriteString(config.Border.Top.Style)
+			builder.WriteString(config.Border.Top.Color)
+			builder.WriteString(",")
+		}
+		if config.Border.Bottom.Style != "" {
+			builder.WriteString("bt")
+			builder.WriteString(config.Border.Bottom.Style)
+			builder.WriteString(config.Border.Bottom.Color)
+			builder.WriteString(",")
+		}
+		if config.Border.Left.Style != "" {
+			builder.WriteString("l")
+			builder.WriteString(config.Border.Left.Style)
+			builder.WriteString(config.Border.Left.Color)
+			builder.WriteString(",")
+		}
+		if config.Border.Right.Style != "" {
+			builder.WriteString("r")
+			builder.WriteString(config.Border.Right.Style)
+			builder.WriteString(config.Border.Right.Color)
+			builder.WriteString(",")
+		}
+		builder.WriteString(";")
+	}
+	
+	// Alignment configuration
+	if config.Alignment != (AlignmentConfig{}) {
+		builder.WriteString("a:")
+		builder.WriteString(config.Alignment.Horizontal)
+		builder.WriteString(",")
+		builder.WriteString(config.Alignment.Vertical)
+		builder.WriteString(",")
+		if config.Alignment.WrapText {
+			builder.WriteString("w,")
+		}
+		if config.Alignment.TextRotation != 0 {
+			builder.WriteString(fmt.Sprintf("r%d,", config.Alignment.TextRotation))
+		}
+		builder.WriteString(";")
+	}
+	
+	// Protection configuration
+	if config.Protection != nil {
+		builder.WriteString("p:")
+		if config.Protection.Hidden {
+			builder.WriteString("h,")
+		}
+		if config.Protection.Locked {
+			builder.WriteString("l,")
+		}
+		builder.WriteString(";")
+	}
+	
+	// NumberFormat configuration
+	if config.NumberFormat != "" {
+		builder.WriteString("nf:")
+		builder.WriteString(config.NumberFormat)
+		builder.WriteString(";")
+	}
+	
+	// For short keys, return directly; for longer keys, hash to keep them manageable
+	key := builder.String()
+	if len(key) < 100 {
+		return key
+	}
+	
+	// Use SHA-256 for longer keys (more secure than MD5)
+	hash := sha256.Sum256([]byte(key))
 	return fmt.Sprintf("%x", hash)
 }
 
@@ -120,7 +288,9 @@ func (sm *StyleManager) ClearCache() {
 	sm.mutex.Lock()
 	defer sm.mutex.Unlock()
 	sm.cache = make(map[string]*StyleFlyweight)
+	sm.access = make(map[string]int64)
 	sm.stats = CacheStats{}
+	sm.counter = 0
 }
 
 // GetCacheSize returns the number of cached styles

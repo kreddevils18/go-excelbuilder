@@ -1,14 +1,20 @@
 package excelbuilder
 
 import (
+	"sync"
+
 	"github.com/xuri/excelize/v2"
 )
 
 // ExcelBuilder is the main builder for creating Excel files.
 // It acts as the entry point for the entire library.
 type ExcelBuilder struct {
-	file         *excelize.File
-	styleManager *StyleManager
+	file              *excelize.File
+	styleManager      *StyleManager
+	errors            []error
+	errorMutex        sync.RWMutex
+	errorCollection   bool
+	streamingMode     bool
 }
 
 // New creates a new ExcelBuilder instance.
@@ -16,9 +22,36 @@ type ExcelBuilder struct {
 func New() *ExcelBuilder {
 	file := excelize.NewFile()
 	return &ExcelBuilder{
-		file:         file,
-		styleManager: NewStyleManager(),
+		file:            file,
+		styleManager:    NewStyleManager(),
+		errors:          make([]error, 0),
+		errorCollection: false,
+		streamingMode:   false,
 	}
+}
+
+// AddError adds an error to the collection (thread-safe)
+func (eb *ExcelBuilder) AddError(err error) {
+	if !eb.errorCollection || err == nil {
+		return
+	}
+	eb.errorMutex.Lock()
+	defer eb.errorMutex.Unlock()
+	eb.errors = append(eb.errors, err)
+}
+
+// HasErrors returns true if there are collected errors
+func (eb *ExcelBuilder) HasErrors() bool {
+	eb.errorMutex.RLock()
+	defer eb.errorMutex.RUnlock()
+	return len(eb.errors) > 0
+}
+
+// ClearErrors clears all collected errors
+func (eb *ExcelBuilder) ClearErrors() {
+	eb.errorMutex.Lock()
+	defer eb.errorMutex.Unlock()
+	eb.errors = eb.errors[:0]
 }
 
 // NewWorkbook creates a new WorkbookBuilder.
@@ -67,23 +100,25 @@ func (eb *ExcelBuilder) ConvertJSONToWorkbook(jsonData map[string]interface{}) *
 
 // WithStreamingMode enables streaming mode for large datasets
 func (eb *ExcelBuilder) WithStreamingMode(enabled bool) *ExcelBuilder {
-	// For now, just return the same builder
-	// In a full implementation, this would configure streaming
+	eb.streamingMode = enabled
 	return eb
 }
 
 // WithErrorCollection enables error collection mode
 func (eb *ExcelBuilder) WithErrorCollection(enabled bool) *ExcelBuilder {
-	// For now, just return the same builder
-	// In a full implementation, this would enable error collection
+	eb.errorCollection = enabled
 	return eb
 }
 
-// GetCollectedErrors returns collected errors
+// GetCollectedErrors returns collected errors (thread-safe)
 func (eb *ExcelBuilder) GetCollectedErrors() []error {
-	// For now, return empty slice
-	// In a full implementation, this would return actual collected errors
-	return []error{}
+	eb.errorMutex.RLock()
+	defer eb.errorMutex.RUnlock()
+	
+	// Return a copy to prevent external modification
+	errorsCopy := make([]error, len(eb.errors))
+	copy(errorsCopy, eb.errors)
+	return errorsCopy
 }
 
 // TransformDataToPivot transforms raw data to pivot format
